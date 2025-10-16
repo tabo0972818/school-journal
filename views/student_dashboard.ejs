@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title><%= title || "生徒ダッシュボード" %></title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body {
+      font-family: "Segoe UI","Noto Sans JP",sans-serif;
+      background:#f5f7fa;
+      margin:0;padding:0;
+    }
+    header {
+      display:flex;justify-content:space-between;align-items:center;
+      background:#0078d4;color:white;padding:15px 20px;font-size:1.2em;
+    }
+    header img {
+      width:36px;height:36px;cursor:pointer;border-radius:6px;transition:.3s;
+    }
+    header img:hover { background:rgba(255,255,255,0.3); }
+    main { max-width:1100px;margin:auto;padding:25px; }
+    h2 { border-left:5px solid #0078d4;padding-left:10px;color:#0078d4; }
+    table {
+      width:100%;border-collapse:collapse;margin-top:10px;
+      background:white;box-shadow:0 2px 5px rgba(0,0,0,0.1);
+    }
+    th, td {
+      border:1px solid #ddd;padding:8px;text-align:center;
+    }
+    th { background:#0078d4;color:white; }
+    tr:nth-child(even){background:#f9f9f9;}
+    textarea, select {
+      width:100%;padding:6px;margin:5px 0;border:1px solid #ccc;border-radius:5px;
+    }
+    button {
+      background:#0078d4;color:white;border:none;border-radius:5px;
+      padding:8px 15px;cursor:pointer;margin-top:8px;
+    }
+    button:hover { background:#005fa3; }
+    form { background:white;padding:15px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    #chart { width:100%;max-height:400px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>📘 生徒ページ（<%= studentName %>）</h1>
+  <img src="/images/logout.png" alt="logout" onclick="logout()">
+</header>
+
+<main>
+  <% if (alertMessage) { %>
+    <p style="color:red;font-weight:bold;"><%= alertMessage %></p>
+  <% } %>
+
+  <!-- 📝 提出フォーム -->
+  <section>
+    <h2>📝 提出フォーム（前登校日分のみ）</h2>
+    <form method="POST" action="/student/submit">
+      <label>体調：</label>
+      <select name="condition" required>
+        <option value="">選択</option>
+        <option value="3">よい</option>
+        <option value="2">ふつう</option>
+        <option value="1">わるい</option>
+      </select>
+
+      <label>メンタル：</label>
+      <select name="mental" required>
+        <option value="">選択</option>
+        <option value="3">元気</option>
+        <option value="2">ふつう</option>
+        <option value="1">疲れ気味</option>
+      </select>
+
+      <label>今日の振り返り：</label>
+      <textarea name="reflection" rows="4" required></textarea>
+
+      <button type="submit">提出</button>
+    </form>
+  </section>
+
+  <!-- 📅 提出履歴 -->
+  <section>
+    <h2>📅 提出履歴</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>日付</th>
+          <th>体調</th>
+          <th>メンタル</th>
+          <th>振り返り</th>
+          <th>状態</th>
+          <th>担任コメント</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (entries.length) { %>
+          <% entries.forEach(e => { %>
+            <tr>
+              <td><%= e.date %></td>
+              <td>
+                <% if (e.condition == 3) { %>😊 よい
+                <% } else if (e.condition == 2) { %>😐 ふつう
+                <% } else if (e.condition == 1) { %>😞 わるい
+                <% } else { %>-<% } %>
+              </td>
+              <td>
+                <% if (e.mental == 3) { %>💪 元気
+                <% } else if (e.mental == 2) { %>😌 ふつう
+                <% } else if (e.mental == 1) { %>😣 疲れ気味
+                <% } else { %>-<% } %>
+              </td>
+              <td style="text-align:left;"><%= e.reflection %></td>
+              <td>
+                <% if (e.is_read == 1) { %>✅ 既読
+                <% } else { %>🕓 未読<% } %>
+              </td>
+              <td style="text-align:left;color:#0078d4;"><%= e.teacher_comment || "-" %></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr><td colspan="6">まだ提出がありません。</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 📊 推移グラフ -->
+  <section>
+    <h2>📊 体調・メンタル推移</h2>
+    <canvas id="chart"></canvas>
+  </section>
+</main>
+
+<script>
+  const chartData = <%- JSON.stringify(chartData || []) %>;
+
+  if (chartData.length) {
+    const ctx = document.getElementById("chart");
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: chartData.map(e => e.date),
+        datasets: [
+          {
+            label: "体調",
+            data: chartData.map(e => Number(e.condition)),
+            borderColor: "rgba(54,162,235,1)",
+            backgroundColor: "rgba(54,162,235,0.2)",
+            fill: true,
+            tension: 0.2
+          },
+          {
+            label: "メンタル",
+            data: chartData.map(e => Number(e.mental)),
+            borderColor: "rgba(255,99,132,1)",
+            backgroundColor: "rgba(255,99,132,0.2)",
+            fill: true,
+            tension: 0.2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 3,
+            ticks: {
+              stepSize: 1,
+              callback: value => {
+                if (value === 1) return "低";
+                if (value === 2) return "中";
+                if (value === 3) return "高";
+                return value;
+              }
+            }
+          }
+        },
+        plugins: { legend: { position: "bottom" } }
+      }
+    });
+  }
+
+  function logout() {
+    if (confirm("ログアウトしますか？")) {
+      location.href = "/logout";
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+ <title><%= typeof title !== "undefined" ? title : "エラー" %></title>
+  <style>
+    body {
+      font-family: "Segoe UI","Noto Sans JP",sans-serif;
+      background:#f5f7fa;
+      color:#333;
+      padding:40px;
+      text-align:center;
+    }
+    h1 { color:#d32f2f; }
+    pre {
+      background:#fff;
+      padding:15px;
+      border-radius:6px;
+      box-shadow:0 2px 5px rgba(0,0,0,0.1);
+      text-align:left;
+      white-space:pre-wrap;
+      word-break:break-word;
+      margin:20px auto;
+      max-width:800px;
+    }
+    a {
+      display:inline-block;
+      margin-top:15px;
+      color:#0078d4;
+      text-decoration:none;
+    }
+    a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <h1>⚠️ エラーが発生しました</h1>
+  <p><%= message || "不明なエラーです。" %></p>
+
+  <% if (error && error.stack) { %>
+    <pre><%= error.stack %></pre>
+  <% } %>
+
+  <a href="/">トップに戻る</a>
+</body>
+</html>

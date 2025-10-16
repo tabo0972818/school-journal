@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title><%= title %></title>
+  <img src="/images/school_logo.png" alt="学校ロゴ" class="school-logo">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* 全体背景 */
+    body {
+      font-family: "Noto Sans JP", sans-serif;
+      background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    /* ログインカード */
+    .login-container {
+      background: #fff;
+      padding: 40px 50px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      width: 350px;
+      transition: all 0.3s ease;
+    }
+
+    .login-container:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    h1 {
+      margin-bottom: 25px;
+      font-size: 1.8em;
+      color: #1976d2;
+    }
+
+    /* 入力欄 */
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1em;
+      transition: 0.2s;
+    }
+
+    input:focus {
+      border-color: #1976d2;
+      outline: none;
+      box-shadow: 0 0 4px rgba(25, 118, 210, 0.3);
+    }
+
+    /* ボタン */
+    button {
+      width: 95%;
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      padding: 10px 0;
+      border-radius: 6px;
+      font-size: 1.1em;
+      margin-top: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0d47a1;
+    }
+
+    /* エラーメッセージ */
+    .error {
+      color: #d32f2f;
+      font-weight: bold;
+      margin-bottom: 15px;
+      background-color: #ffebee;
+      border: 1px solid #ffcdd2;
+      border-radius: 5px;
+      padding: 8px;
+    }
+
+    /* ログアウトボタン画像対応など共通調整を意識 */
+    .footer {
+      margin-top: 15px;
+      font-size: 0.9em;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h1>連絡帳システム ログイン</h1>
+
+    <% if (typeof error !== "undefined" && error) { %>
+      <p class="error"><%= error %></p>
+    <% } %>
+
+    <form method="POST" action="/login">
+      <input type="text" name="id" placeholder="ユーザーID" required><br>
+      <input type="password" name="password" placeholder="パスワード" required><br>
+      <button type="submit">ログイン</button>
+    </form>
+
+    <div class="footer">
+      <p>© 2026 JPT Parallel Technologies</p>
+    </div>
+  </div>
+</body>
+</html>

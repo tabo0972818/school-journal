@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title><%= title || "担任ダッシュボード" %></title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body {
+      font-family: "Segoe UI","Noto Sans JP",sans-serif;
+      background:#f5f7fa;
+      margin:0;padding:0;
+    }
+    header {
+      display:flex;justify-content:space-between;align-items:center;
+      background:#0078d4;color:white;padding:15px 20px;font-size:1.2em;
+    }
+    header img {
+      width:36px;height:36px;cursor:pointer;border-radius:6px;transition:.3s;
+    }
+    header img:hover { background:rgba(255,255,255,0.3); }
+    main { max-width:1100px;margin:auto;padding:25px; }
+    h2 { border-left:5px solid #0078d4;padding-left:10px;color:#0078d4; }
+
+    /* 📱 スマホ対応のテーブル改善 */
+    .table-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 25px;
+    }
+    table {
+      width:100%;
+      border-collapse:collapse;
+      background:white;
+      box-shadow:0 2px 5px rgba(0,0,0,0.1);
+      min-width:800px;
+    }
+    th, td {
+      border:1px solid #ddd;padding:8px;text-align:center;white-space:nowrap;
+    }
+    th { background:#0078d4;color:white; }
+    tr:nth-child(even){background:#f9f9f9;}
+    button {
+      background:#0078d4;color:white;border:none;border-radius:5px;
+      padding:6px 10px;cursor:pointer;
+    }
+    button:hover { background:#005fa3; }
+    input[type="text"] {
+      border:1px solid #ccc;border-radius:5px;padding:4px;width:180px;
+    }
+    .chart-container { margin-top:30px; }
+    .read { color:gray; }
+
+    /* 💡 スマホ用調整 */
+    @media (max-width:768px) {
+      header { flex-direction:column; align-items:flex-start; gap:10px; }
+      main { padding:15px; }
+      table { font-size:0.9em; }
+      th, td { padding:6px; }
+      h2 { font-size:1.1em; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>👨‍🏫 <%= title %>（<%= teacherName %>）</h1>
+  <img src="/images/logout.png" alt="logout" onclick="logout()">
+</header>
+
+<main>
+  <% const safeUnsubmitted = (typeof unsubmitted !== "undefined" && Array.isArray(unsubmitted)) ? unsubmitted : []; %>
+
+  <!-- 📋 提出一覧 -->
+  <section>
+    <h2>📋 提出一覧</h2>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>生徒ID</th><th>日付</th><th>体調</th><th>メンタル</th><th>振り返り</th><th>既読</th><th>コメント</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (entries && entries.length) { %>
+            <% entries.forEach(e => { %>
+              <tr>
+                <td><%= e.id %></td>
+                <td><%= e.student_id %></td>
+                <td><%= e.date %></td>
+                <td>
+                  <% if(e.condition==3){ %>😊 よい
+                  <% }else if(e.condition==2){ %>😐 ふつう
+                  <% }else if(e.condition==1){ %>😞 わるい
+                  <% }else{ %>-<% } %>
+                </td>
+                <td>
+                  <% if(e.mental==3){ %>💪 元気
+                  <% }else if(e.mental==2){ %>😌 ふつう
+                  <% }else if(e.mental==1){ %>😣 疲れ気味
+                  <% }else{ %>-<% } %>
+                </td>
+                <td style="text-align:left;"><%= e.reflection || "" %></td>
+                <td><%= e.is_read == 1 ? "✅ 既読" : "🔴 未読" %></td>
+                <td style="text-align:left;color:#0078d4;"><%= e.teacher_comment || "-" %></td>
+                <td>
+                  <% if(e.is_read == 1){ %>
+                    <span class="read">済</span>
+                  <% } else { %>
+                    <form method="POST" action="/teacher/read/<%= e.id %>" style="display:flex;gap:5px;justify-content:center;">
+                      <input type="text" name="comment" placeholder="コメント">
+                      <button type="submit">既読</button>
+                    </form>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr><td colspan="9">まだ提出がありません。</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 📅 未提出者一覧 -->
+  <section>
+    <h2>📅 未提出者一覧（<%= new Date().toISOString().split('T')[0] %>）</h2>
+    <% if (safeUnsubmitted.length > 0) { %>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>ID</th><th>名前</th></tr></thead>
+          <tbody>
+            <% safeUnsubmitted.forEach(u => { %>
+              <tr><td><%= u.id %></td><td><%= u.name %></td></tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <p style="color:green;">全員提出済みです 🎉</p>
+    <% } %>
+  </section>
+
+  <!-- 📈 提出率 -->
+  <section>
+    <h2>📈 今日の提出率</h2>
+    <canvas id="submissionChart"></canvas>
+  </section>
+
+  <!-- 📊 平均値グラフ -->
+  <section class="chart-container">
+    <h2>📊 クラス平均値</h2>
+    <canvas id="avgChart"></canvas>
+  </section>
+
+  <!-- 📈 日別推移グラフ -->
+  <section class="chart-container">
+    <h2>📈 クラス平均（日別推移）</h2>
+    <canvas id="trendChart"></canvas>
+  </section>
+</main>
+
+<script>
+  const submissionRate = <%- submissionRate || 0 %>;
+  const unsubmittedRate = 100 - submissionRate;
+  new Chart(document.getElementById("submissionChart"), {
+    type: "doughnut",
+    data: {
+      labels: ["提出済み", "未提出"],
+      datasets: [{ data: [submissionRate, unsubmittedRate], backgroundColor: ["#4e79a7", "#f28e2b"] }]
+    },
+    options: {
+      plugins: { legend: { position: "bottom" }, title: { display: true, text: `提出率：${submissionRate}%` } },
+      cutout: "65%"
+    }
+  });
+
+  new Chart(document.getElementById("avgChart"), {
+    type: "bar",
+    data: {
+      labels: ["体調", "メンタル"],
+      datasets: [{ data: [<%= avgCondition %>, <%= avgMental %>], backgroundColor: ["#4e79a7", "#f28e2b"] }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true, max: 3, ticks: { stepSize: 1 } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  new Chart(document.getElementById("trendChart"), {
+    type: "line",
+    data: {
+      labels: <%- JSON.stringify(trendLabels || []) %>,
+      datasets: [
+        { label: "体調", data: <%- JSON.stringify(trendCondition || []) %>, borderColor: "rgba(75,192,192,1)", backgroundColor: "rgba(75,192,192,0.2)", fill: true, tension: 0.2 },
+        { label: "メンタル", data: <%- JSON.stringify(trendMental || []) %>, borderColor: "rgba(255,99,132,1)", backgroundColor: "rgba(255,99,132,0.2)", fill: true, tension: 0.2 }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true, max: 3, ticks: { stepSize: 1 } } },
+      plugins: { legend: { position: "bottom" } }
+    }
+  });
+
+  function logout() {
+    if (confirm("ログアウトしますか？")) {
+      window.location.href = "/logout";
+    }
+  }
+</script>
+</body>
+</html>

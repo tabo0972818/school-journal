@@ -1,0 +1,5 @@
+# Firebase秘密鍵は絶対にアップしない
+serviceAccountKey.json
+node_modules/
+.env
+*.log
