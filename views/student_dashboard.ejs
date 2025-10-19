@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Segoe UI","Noto Sans JP",sans-serif;
+      background:#f5f7fa;margin:0;padding:0;
+    }
+    header {
+      display:flex;justify-content:space-between;align-items:center;
+      background:#0078d4;color:white;padding:15px 20px;font-size:1.2em;
+    }
+    header img {
+      width:36px;height:36px;cursor:pointer;border-radius:6px;transition:.3s;
+    }
+    header img:hover { background:rgba(255,255,255,0.3); }
+    main { max-width:1000px;margin:auto;padding:25px; }
+    h2 { border-left:5px solid #0078d4;padding-left:10px;color:#0078d4; }
+
+    form {
+      background:#fff;padding:20px;border-radius:10px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);margin-bottom:25px;
+    }
+    select,textarea,button {
+      font-size:1em;margin:6px 0;padding:8px;border-radius:5px;border:1px solid #ccc;
+    }
+    select,textarea { width:100%; }
+    button {
+      background:#0078d4;color:#fff;border:none;padding:8px 16px;
+      border-radius:5px;cursor:pointer;transition:.3s;
+    }
+    button:hover { background:#005fa3; }
+
+    table {
+      width:100%;border-collapse:collapse;background:white;
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);
+    }
+    th,td {
+      border:1px solid #ddd;padding:8px;text-align:center;white-space:nowrap;
+    }
+    th { background:#0078d4;color:white; }
+    tr:nth-child(even){background:#f9f9f9;}
+    .status-read { color:green;font-weight:bold; }
+    .status-unread { color:red;font-weight:bold; }
+
+    /* ✅ トースト通知 */
+    .toast {
+      position: fixed;top: 20px;right: 20px;
+      background: rgba(0,0,0,0.85);color: #fff;
+      padding: 12px 18px;border-radius: 8px;
+      opacity: 0;pointer-events: none;
+      transition: opacity 0.4s, transform 0.4s;
+      transform: translateY(-20px);z-index: 1000;
+    }
+    .toast.show { opacity: 1;transform: translateY(0);pointer-events: auto; }
+    .toast.success { background: #009a3d; }
+    .toast.error { background: #d93025; }
+
+    @media (max-width:768px){
+      main{padding:15px;}
+      table{font-size:0.9em;}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📘 生徒ページ（<%= student.name %> / <%= student.class_name %>）</h1>
+    <img src="/images/logout.png" alt="logout" onclick="logout()">
+  </header>
+
+  <main>
+    <% if (alertMessage) { %>
+      <p id="alertMsg" style="display:none;"><%= alertMessage %></p>
+    <% } %>
+
+    <!-- 📝 提出フォーム -->
+    <section>
+      <h2>📝 提出フォーム（前登校日のみ）</h2>
+      <form method="POST" action="/student">
+        <input type="hidden" name="student_id" value="<%= student.id %>">
+
+        <label>体調：</label>
+        <select name="condition" required>
+          <option value="">選択</option>
+          <option value="5">🌈 とてもよい</option>
+          <option value="4">😊 よい</option>
+          <option value="3">😐 普通</option>
+          <option value="2">😞 少しわるい</option>
+          <option value="1">💤 かなりわるい</option>
+        </select>
+
+        <label>メンタル：</label>
+        <select name="mental" required>
+          <option value="">選択</option>
+          <option value="5">💪 とても元気</option>
+          <option value="4">🙂 元気</option>
+          <option value="3">😌 普通</option>
+          <option value="2">😣 やや不調</option>
+          <option value="1">😭 かなり不調</option>
+        </select>
+
+        <label>今日の振り返り：</label>
+        <textarea name="reflection" rows="3" placeholder="例：授業で〇〇を学んだ..." required></textarea>
+
+        <label>相談欄（任意）：</label>
+        <textarea name="consultation" rows="3" placeholder="悩み・相談など（担任のみ閲覧可）"></textarea>
+
+        <button type="submit">提出</button>
+      </form>
+    </section>
+
+    <!-- 📋 提出履歴 -->
+    <section>
+      <h2>📋 提出履歴</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th>
+            <th>体調</th>
+            <th>メンタル</th>
+            <th>振り返り</th>
+            <th>状態</th>
+            <th>担任コメント</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (entries && entries.length) { %>
+            <% entries.forEach(e => { %>
+              <tr>
+                <td><%= e.date %></td>
+                <td>
+                  <% if (e.condition == 5) { %>🌈 とてもよい
+                  <% } else if (e.condition == 4) { %>😊 よい
+                  <% } else if (e.condition == 3) { %>😐 普通
+                  <% } else if (e.condition == 2) { %>😞 少しわるい
+                  <% } else if (e.condition == 1) { %>💤 かなりわるい
+                  <% } else { %>-<% } %>
+                </td>
+                <td>
+                  <% if (e.mental == 5) { %>💪 とても元気
+                  <% } else if (e.mental == 4) { %>🙂 元気
+                  <% } else if (e.mental == 3) { %>😌 普通
+                  <% } else if (e.mental == 2) { %>😣 やや不調
+                  <% } else if (e.mental == 1) { %>😭 かなり不調
+                  <% } else { %>-<% } %>
+                </td>
+                <td style="text-align:left;"><%= e.reflection || "" %></td>
+                <td class="<%= e.is_read ? 'status-read' : 'status-unread' %>">
+                  <%= e.is_read ? "✅ 既読" : "⏰ 未読" %>
+                </td>
+                <td style="text-align:left;"><%= e.teacher_comment || "-" %></td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr><td colspan="6">まだ提出がありません。</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module">
+    import { showToast } from "/js/toast.js";
+
+    window.logout = function() {
+      if (confirm("ログアウトしますか？")) {
+        sessionStorage.clear();
+        window.location.href = "/logout";
+      }
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const msgEl = document.getElementById("alertMsg");
+      if (!msgEl) return;
+      const msg = msgEl.textContent.trim();
+      if (!msg) return;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const alertType = urlParams.get("alert");
+      const type = (alertType === "success") ? "success" : "error";
+
+      if (!sessionStorage.getItem("toastShown")) {
+        showToast(msg, type, 3500);
+        sessionStorage.setItem("toastShown", "true");
+        if (type === "success") {
+          setTimeout(() => {
+            const cleanUrl = `/student?user=<%= student.id %>`;
+            history.replaceState(null, "", cleanUrl);
+          }, 4000);
+        }
+      }
+    });
+  </script>
+</body>
+</html>

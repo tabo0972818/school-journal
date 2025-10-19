@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title><%= title || "管理者ダッシュボード" %></title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { font-family: "Segoe UI","Noto Sans JP",sans-serif; background:#f5f7fa; margin:0; padding:0; }
+    header { display:flex; justify-content:space-between; align-items:center; background:#343a40; color:white; padding:15px 20px; }
+    header img { width:40px; cursor:pointer; transition:.3s; }
+    header img:hover { opacity:0.7; }
+    main { max-width:1100px; margin:auto; padding:25px; }
+    section { background:white; border-radius:10px; padding:20px; margin-bottom:25px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+    h2 { border-left:5px solid #0078d4; padding-left:10px; color:#0078d4; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:center; }
+    th { background:#0078d4; color:white; }
+    tr:nth-child(even){background:#f9f9f9;}
+    button { background:#0078d4; color:white; border:none; border-radius:5px; padding:6px 12px; cursor:pointer; }
+    button:hover { background:#005fa3; }
+    .btn-danger { background:#dc3545; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🧑‍💼 管理者ダッシュボード</h1>
+  <img src="/images/logout.png" alt="logout" onclick="logout()">
+</header>
+
+<main>
+  <!-- 👥 ユーザー管理 -->
+  <section>
+    <h2>👥 ユーザー管理</h2>
+    <form method="POST" action="/admin/addUser">
+      <input type="text" name="id" placeholder="ID" required>
+      <input type="text" name="name" placeholder="氏名" required>
+      <select name="role" required>
+        <option value="student">生徒</option>
+        <option value="teacher">担任</option>
+        <option value="admin">管理者</option>
+      </select>
+      <select name="grade"><option>1年</option><option>2年</option><option>3年</option></select>
+      <select name="class_name"><option>A</option><option>B</option><option>C</option></select>
+      <input type="password" name="password" placeholder="パスワード" required>
+      <button>追加 / 更新</button>
+    </form>
+    <table>
+      <thead><tr><th>ID</th><th>名前</th><th>役割</th><th>学年</th><th>クラス</th><th>操作</th></tr></thead>
+      <tbody>
+        <% users.forEach(u=>{ %>
+          <tr>
+            <td><%= u.id %></td>
+            <td><%= u.name %></td>
+            <td><%= u.role %></td>
+            <td><%= u.grade %></td>
+            <td><%= u.class_name %></td>
+            <td>
+              <form method="POST" action="/admin/deleteUser/<%= u.id %>" onsubmit="return confirm('削除しますか？')">
+                <button class="btn-danger">削除</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 📋 提出データ -->
+  <section>
+    <h2>📋 提出データ一覧</h2>
+    <form method="POST" action="/admin/reset" onsubmit="return confirm('提出履歴を初期化しますか？')">
+      <button class="btn-danger">提出データ初期化</button>
+    </form>
+    <table>
+      <thead><tr><th>ID</th><th>ユーザー</th><th>日付</th><th>体調</th><th>メンタル</th><th>状態</th></tr></thead>
+      <tbody>
+        <% entries.forEach(e=>{ %>
+          <tr>
+            <td><%= e.id %></td>
+            <td><%= e.username %></td>
+            <td><%= e.date %></td>
+            <td><%= e.condition %></td>
+            <td><%= e.mental %></td>
+            <td><%= e.status %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 📊 統計グラフ -->
+  <section>
+    <h2>📊 平均値</h2>
+    <canvas id="chart" style="max-width:500px;height:220px;margin:auto;"></canvas>
+    <p>総提出：<%= totalEntries %> 件　未読：<%= unreadCount %> 件　既読：<%= readCount %> 件</p>
+  </section>
+
+  <!-- 🕓 ログ -->
+  <section>
+    <h2>🕓 操作ログ</h2>
+    <form method="POST" action="/admin/logs/clear" onsubmit="return confirm('ログを全削除しますか？')">
+      <button class="btn-danger">ログ全削除</button>
+    </form>
+    <table>
+      <thead><tr><th>ID</th><th>ユーザー</th><th>操作</th><th>日時</th></tr></thead>
+      <tbody>
+        <% logs.forEach(l=>{ %>
+          <tr>
+            <td><%= l.id %></td>
+            <td><%= l.user %></td>
+            <td><%= l.action %></td>
+            <td><%= l.time %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+new Chart(document.getElementById('chart'), {
+  type: 'bar',
+  data: {
+    labels: ['体調', 'メンタル'],
+    datasets: [{ data: [<%= avgCondition %>, <%= avgMental %>], backgroundColor: ['#0078d4', '#f28e2b'] }]
+  },
+  options: { scales: { y: { beginAtZero: true, max: 5 } }, plugins: { legend: { display: false } } }
+});
+function logout() {
+  if (confirm("ログアウトしますか？")) window.location.href = "/logout";
+}
+</script>
+</body>
+</html>
