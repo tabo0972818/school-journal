@@ -1,4 +1,4 @@
-cd "C:\Users\hsgwt\OneDrive\Desktop\NikkiParallelTechnology\school-journal-ver.8"
+cd "C:\Users\hsgwt\OneDrive\Desktop\NikkiParallelTechnology\school-journal-ver.10"
 
 npm start
 
@@ -15,3 +15,9 @@ PS C:\Users\hsgwt\OneDrive\Desktop\NikkiParallelTechnology\school-journal-ver.8>
 origin  https://takayuki.hasegawa:glpat-jmPrc_o9bPx-hVHogcNJ-G86MQp1OmgH.01.0w0th2pj7@intern.jpt.jgc.com/takayuki.hasegawa/quest_1.git (fetch)
 origin  https://takayuki.hasegawa:glpat-jmPrc_o9bPx-hVHogcNJ-G86MQp1OmgH.01.0w0th2pj7@intern.jpt.jgc.com/takayuki.hasegawa/quest_1.git (push)
 PS C:\Users\hsgwt\OneDrive\Desktop\NikkiParallelTechnology\school-journ
+
+加点:READMEテンプレ／履歴画面／既読率グラフ
+
+
+日付からコメントまででいいから出力制限お願い。
+あと先生ダッシュボード、既読ボタン反応しない。

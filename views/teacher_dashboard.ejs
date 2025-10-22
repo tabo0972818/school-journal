@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <title><%= title || "担任ダッシュボード" %></title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     body {
-      font-family:"Segoe UI","Noto Sans JP",sans-serif;
+      font-family: "Segoe UI","Noto Sans JP",sans-serif;
       background:#f5f7fa;
       margin:0;padding:0;
     }
@@ -15,49 +16,19 @@
       display:flex;justify-content:space-between;align-items:center;
       background:#0078d4;color:white;padding:15px 20px;font-size:1.2em;
     }
-    header img {
-      width:36px;height:36px;cursor:pointer;border-radius:6px;transition:.3s;
-    }
-    header img:hover { background:rgba(255,255,255,0.3); }
-    main { max-width:1100px;margin:auto;padding:25px; }
-    h2 { border-left:5px solid #0078d4;padding-left:10px;color:#0078d4; }
-
-    .table-container { overflow-x:auto;margin-bottom:25px; }
-    table {
-      width:100%;border-collapse:collapse;background:white;
-      box-shadow:0 2px 6px rgba(0,0,0,0.1);min-width:850px;
-    }
-    th,td { border:1px solid #ddd;padding:8px;text-align:center;white-space:nowrap; }
-    th { background:#0078d4;color:white; }
-    tr:nth-child(even){background:#f9f9f9;}
-    button { background:#0078d4;color:white;border:none;border-radius:5px;padding:6px 10px;cursor:pointer; }
-    button:hover { background:#005fa3; }
-    input[type="text"] { border:1px solid #ccc;border-radius:5px;padding:4px;width:180px; }
-
-    /* 🔒 confidential 折りたたみボックス */
-    .conf-btn {
-      background:#0078d4;color:white;border:none;border-radius:5px;
-      padding:4px 8px;font-size:0.9em;cursor:pointer;
-    }
-    .conf-btn:hover { background:#005fa3; }
-    .conf-box {
-      display:none;
-      background:#eef7ff;
-      border:1px solid #0078d4;
-      border-radius:6px;
-      padding:8px;
-      margin-top:4px;
-      text-align:left;
-      white-space:pre-wrap;
-    }
-
-    .chart-container { margin-top:30px; }
-    @media (max-width:768px){
-      header{flex-direction:column;align-items:flex-start;gap:10px;}
-      main{padding:15px;}
-      table{font-size:0.9em;}
-      th,td{padding:6px;}
-    }
+    header img {width:36px;height:36px;cursor:pointer;border-radius:6px;transition:.3s;}
+    header img:hover {background:rgba(255,255,255,0.3);}
+    main {max-width:1100px;margin:auto;padding:25px;}
+    h2 {border-left:5px solid #0078d4;padding-left:10px;color:#0078d4;font-weight:600;}
+    .table-container{overflow-x:auto;margin-bottom:25px;}
+    table{width:85%;margin:auto;border-collapse:collapse;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.1);min-width:700px;}
+    th,td{border:1px solid #ddd;padding:6px 8px;text-align:center;white-space:nowrap;}
+    th{background:#0078d4;color:#fff;} tr:nth-child(even){background:#f9f9f9;}
+    button{background:#0078d4;color:#fff;border:none;border-radius:5px;padding:6px 10px;cursor:pointer;margin-right:4px;}
+    button:hover{background:#005fa3;}
+    input[type="text"],input[type="date"]{border:1px solid #ccc;border-radius:5px;padding:4px;width:160px;margin-right:4px;}
+    .toast{position:fixed;right:16px;bottom:16px;background:#333;color:#fff;padding:10px 14px;border-radius:8px;opacity:0;transform:translateY(10px);transition:.25s;}
+    .toast.show{opacity:1;transform:translateY(0);}
   </style>
 </head>
 <body>
@@ -67,68 +38,45 @@
 </header>
 
 <main>
-  <% const safeUnsubmitted = (typeof unsubmitted !== "undefined" && Array.isArray(unsubmitted)) ? unsubmitted : []; %>
+  <% const safeUnsubmitted = Array.isArray(unsubmitted) ? unsubmitted : []; %>
 
   <!-- 📋 提出一覧 -->
-  <section>
+  <section id="sectionEntries">
     <h2>📋 提出一覧（相談欄含む）</h2>
+    <div style="margin-bottom:10px;">
+      <label>期間：</label>
+      <input type="date" id="filterFrom"> ～ 
+      <input type="date" id="filterTo">
+      <button onclick="filterByRange()">絞り込み</button>
+      <button onclick="resetRange()">リセット</button>
+      <button onclick="exportToPDF('entryTable','class_entries','<%= grade %><%= className %> 提出一覧（相談欄付き）')">🖨️ PDF出力</button>
+      <button onclick="exportToCSV('entryTable','class_entries')">📄 CSV出力</button>
+    </div>
+
     <div class="table-container">
-      <table>
+      <table id="entryTable">
         <thead>
           <tr>
-            <th>日付</th>
-            <th>生徒名</th>
-            <th>体調</th>
-            <th>メンタル</th>
-            <th>振り返り</th>
-            <th>相談欄</th>
-            <th>既読</th>
-            <th>コメント</th>
-            <th>操作</th>
+            <th>日付</th><th>生徒名</th><th>体調</th><th>メンタル</th>
+            <th>振り返り</th><th>相談欄</th><th>既読</th><th>コメント</th><th>操作</th>
           </tr>
         </thead>
         <tbody>
           <% if (entries && entries.length) { %>
             <% entries.forEach(e => { %>
-              <tr>
+              <tr id="row-entry-<%= e.id %>" data-date="<%= e.date %>">
                 <td><%= e.date %></td>
                 <td><%= e.student_name %></td>
-                <td>
-                  <% if(e.condition==5){ %>🌈 とてもよい
-                  <% } else if(e.condition==4){ %>😊 よい
-                  <% } else if(e.condition==3){ %>😐 普通
-                  <% } else if(e.condition==2){ %>😞 少しわるい
-                  <% } else if(e.condition==1){ %>💤 かなりわるい
-                  <% } else { %>-<% } %>
-                </td>
-                <td>
-                  <% if(e.mental==5){ %>💪 とても元気
-                  <% } else if(e.mental==4){ %>🙂 元気
-                  <% } else if(e.mental==3){ %>😌 普通
-                  <% } else if(e.mental==2){ %>😣 やや不調
-                  <% } else if(e.mental==1){ %>😭 かなり不調
-                  <% } else { %>-<% } %>
-                </td>
-
+                <td><%= ["💤かなりわるい","😞少しわるい","😐普通","😊よい","🌈とてもよい"][e.condition-1] || "-" %></td>
+                <td><%= ["😭かなり不調","😣やや不調","😌普通","🙂元気","💪とても元気"][e.mental-1] || "-" %></td>
                 <td style="text-align:left;"><%= e.reflection || "" %></td>
-
-                <!-- ✅ 相談欄 -->
-                <td style="text-align:left;color:#444;">
-                  <% if (e.consultation && e.consultation.trim() !== "") { %>
-                    <%= e.consultation %>
-                  <% } else { %>
-                    -
-                  <% } %>
-                </td>
-
-                <td><%= e.is_read ? "✅" : "🔴" %></td>
-                <td style="text-align:left;color:#0078d4;"><%= e.teacher_comment || "-" %></td>
-                <td>
-                  <% if(e.is_read){ %>
-                    <span>🔥 済</span>
-                  <% } else { %>
+                <td style="text-align:left;color:#444;"><%= (e.consultation||"").trim() || "-" %></td>
+                <td class="cell-read-<%= e.id %>"><%= e.is_read ? "✅" : "🔴" %></td>
+                <td class="cell-comment-<%= e.id %>" style="text-align:left;color:#0078d4;"><%= e.teacher_comment || "-" %></td>
+                <td class="cell-action-<%= e.id %>">
+                  <% if(e.is_read){ %><span>🔥 済</span><% } else { %>
                     <input type="text" id="comment-<%= e.id %>" placeholder="コメント">
-                    <button onclick="markChecked(<%= e.id %>)">既読＋🔥</button>
+                    <button data-entry="<%= e.id %>" class="btn-readlike">既読＋🔥</button>
                   <% } %>
                 </td>
               </tr>
@@ -142,11 +90,18 @@
   </section>
 
   <!-- 📅 未提出者一覧 -->
-  <section>
-    <h2>📅 未提出者一覧（<%= new Date().toISOString().split('T')[0] %>）</h2>
-    <% if (safeUnsubmitted.length > 0) { %>
+  <section id="sectionUnsubmitted">
+    <h2>📅 未提出者一覧</h2>
+    <div style="margin-bottom:10px;">
+      <button onclick="exportToPDF('unsubmittedTable','unsubmitted_list','<%= grade %><%= className %> 未提出者一覧')">🖨️ PDF出力</button>
+      <button onclick="exportToCSV('unsubmittedTable','unsubmitted_list')">📄 CSV出力</button>
+    </div>
+    <% if (safeUnsubmitted.length === 0) { %>
+      <div>全員提出済みです 🎉</div>
+    <% } else { %>
+      <div>未提出者が <strong><%= safeUnsubmitted.length %></strong> 名います ⚠️</div>
       <div class="table-container">
-        <table>
+        <table id="unsubmittedTable">
           <thead><tr><th>ID</th><th>名前</th></tr></thead>
           <tbody>
             <% safeUnsubmitted.forEach(u => { %>
@@ -155,158 +110,236 @@
           </tbody>
         </table>
       </div>
-    <% } else { %>
-      <p style="color:green;">全員提出済みです 🎉</p>
     <% } %>
   </section>
 
-  <!-- 📈 今日の提出率 -->
+  <!-- 📊 グラフ群 -->
   <section>
-    <h2>📈 今日の提出率</h2>
+    <h2>📈 提出率・平均・推移</h2>
     <canvas id="submissionChart"></canvas>
-  </section>
-
-  <!-- 📊 クラス平均 -->
-  <section class="chart-container">
-    <h2>📊 クラス平均</h2>
-    <canvas id="avgChart"></canvas>
-  </section>
-
-  <!-- 📈 日別推移 -->
-  <section class="chart-container">
-    <h2>📈 クラス平均（日別推移）</h2>
-    <canvas id="trendChart"></canvas>
-  </section>
-
-  <!-- 📊 提出数グラフ -->
-  <section class="chart-container">
-    <h2>📊 提出数グラフ</h2>
-    <canvas id="submitChart"></canvas>
-  </section>
-
-  <!-- 📈 日別提出率の推移 -->
-  <section class="chart-container">
-    <h2>📈 日別提出率の推移</h2>
-    <div style="background:#fff;padding:15px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.1);">
-      <canvas id="rateChart"></canvas>
-    </div>
   </section>
 </main>
 
-<!-- ====================== JS ====================== -->
+<div id="toast" class="toast"></div>
+
 <script>
-  // 🔥 既読＋コメント
-  async function markChecked(id) {
-    const comment = document.getElementById(`comment-${id}`)?.value || "";
-    try {
-      const res = await fetch(`/teacher/readlike/${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment })
-      });
-      if (res.ok) {
-        alert("✅ 既読＋🔥を記録しました！");
-        location.reload();
-      } else {
-        alert("❌ 処理に失敗しました。");
+(function(){
+  function jstToday(){
+    const d = new Date(Date.now()+9*60*60*1000);
+    return d.toISOString().slice(0,10);
+  }
+
+  /* ================= 📄 PDF出力 ================= */
+  window.exportToPDF = async function(elementId, filename, titleText){
+    try{
+      const table=document.getElementById(elementId);
+      if(!table)return alert("出力対象が見つかりません");
+
+      const headers=table.querySelectorAll("thead th");
+      const isUserTable=headers.length>2;
+      let hiddenCells=[];
+      if(isUserTable){
+        hiddenCells=[...table.querySelectorAll("th:last-child, td:last-child")];
+        hiddenCells.forEach(td=>td.style.display="none");
       }
-    } catch (err) {
-      alert("通信エラーが発生しました");
+
+      const today=jstToday();
+      const wrap=document.createElement("div");
+      Object.assign(wrap.style,{
+        width:"210mm",margin:"0 auto",background:"#fff",textAlign:"center",
+        padding:"10mm 0",fontFamily:"'Noto Sans JP',sans-serif"
+      });
+
+      const title=document.createElement("h3");
+      title.textContent=`${titleText.replace(/\（.*?\）/, "")}（${today}）`;
+      title.style.color="#0078d4";
+      title.style.marginBottom="5mm";
+      wrap.appendChild(title);
+
+      const clone=table.cloneNode(true);
+      Object.assign(clone.style,{width:"90%",margin:"auto",borderCollapse:"collapse"});
+      clone.querySelectorAll("th,td").forEach(td=>{
+        td.style.border="1px solid #999";
+        td.style.fontSize="11px";
+        td.style.padding="6px 8px";
+        td.style.textAlign="center";
+        td.style.wordBreak="break-all";
+      });
+      const ths=clone.querySelectorAll("th");
+      if(ths.length===2){ths[0].style.width="40%";ths[1].style.width="50%";}
+      wrap.appendChild(clone);
+      document.body.appendChild(wrap);
+
+      await html2pdf().set({
+        margin:[5,5,5,5],
+        filename:`${filename}_${today}.pdf`,
+        image:{type:"jpeg",quality:1},
+        html2canvas:{scale:2,useCORS:true,backgroundColor:"#fff"},
+        jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}
+      }).from(wrap).save();
+
+      wrap.remove();
+      hiddenCells.forEach(td=>td.style.display="");
+    }catch(e){
+      console.error(e);
+      alert("PDF出力中にエラーが発生しました");
+    }
+  };
+
+  /* ================= 📊 CSV出力 ================= */
+  window.exportToCSV=function(tableId,filename){
+    const table=document.getElementById(tableId);
+    if(!table)return alert("出力対象が見つかりません");
+    const today=jstToday();
+    const rows=[...table.querySelectorAll("tr")];
+    const csv=rows.map(r=>{
+      const cells=[...r.querySelectorAll("th,td")];
+      if(cells.length>2)cells.pop();
+      return cells.map(c=>`"${(c.innerText||"").replace(/"/g,'""')}"`).join(",");
+    }).join("\n");
+    const blob=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),csv],{type:"text/csv"});
+    const link=document.createElement("a");
+    link.href=URL.createObjectURL(blob);
+    link.download=`${filename}_${today}.csv`;
+    link.click();
+  };
+
+  /* ================= ✅ 既読＋🔥 ================= */
+  document.addEventListener("click", async e=>{
+    if(!e.target.classList.contains("btn-readlike")) return;
+    const id=e.target.dataset.entry;
+    const comment=document.getElementById("comment-"+id)?.value.trim()||"";
+    try{
+      const res=await fetch(`/teacher/readlike/${id}`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({comment})
+      });
+      const data=await res.json();
+      if(data.success){
+        document.querySelector(".cell-read-"+id).innerText="✅";
+        document.querySelector(".cell-comment-"+id).innerText=comment||"-";
+        document.querySelector(".cell-action-"+id).innerHTML="<span>🔥 済</span>";
+        showToast("既読＋🔥を記録しました");
+      }else{
+        showToast("保存に失敗しました");
+      }
+    }catch(err){
       console.error(err);
-    }
-  }
-
-  // 🚪 ログアウト処理
-  function logout() {
-    if (confirm("ログアウトしますか？")) window.location.href = "/logout";
-  }
-
-  // 📈 提出率グラフ
-  const submissionRate = <%- submissionRate || 0 %>;
-  const unsubmittedRate = 100 - submissionRate;
-  new Chart(document.getElementById("submissionChart"), {
-    type: "doughnut",
-    data: {
-      labels: ["提出済み", "未提出"],
-      datasets: [{ data: [submissionRate, unsubmittedRate], backgroundColor: ["#4e79a7", "#f28e2b"] }]
-    },
-    options: {
-      plugins: { legend: { position: "bottom" }, title: { display: true, text: `提出率：${submissionRate}%` } },
-      cutout: "65%"
+      showToast("通信エラーが発生しました");
     }
   });
 
-  // 📊 クラス平均
-  new Chart(document.getElementById("avgChart"), {
-    type: "bar",
-    data: {
-      labels: ["体調", "メンタル"],
-      datasets: [{ data: [<%= avgCondition %>, <%= avgMental %>], backgroundColor: ["#4e79a7", "#f28e2b"] }]
-    },
-    options: { scales: { y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } }
-  });
-
-  // 📈 クラス平均（日別推移）
-  new Chart(document.getElementById("trendChart"), {
-    type: "line",
-    data: {
-      labels: <%- JSON.stringify(trendLabels || []) %>,
-      datasets: [
-        { label: "体調", data: <%- JSON.stringify(trendCondition || []) %>, borderColor: "#4e79a7", backgroundColor: "rgba(78,121,167,0.2)", fill: true, tension: 0.2 },
-        { label: "メンタル", data: <%- JSON.stringify(trendMental || []) %>, borderColor: "#f28e2b", backgroundColor: "rgba(242,142,43,0.2)", fill: true, tension: 0.2 }
-      ]
-    },
-    options: { responsive: true, scales: { y: { beginAtZero: true, max: 5 } }, plugins: { legend: { position: "bottom" } } }
-  });
-
-  // 📊 提出数グラフ
-  async function loadGraph() {
-    const res = await fetch("/teacher/records");
-    const data = await res.json();
-    const stats = {};
-    data.forEach(r => { if (!r.date) return; stats[r.date] = (stats[r.date] || 0) + 1; });
-    const labels = Object.keys(stats);
-    const values = Object.values(stats);
-    new Chart(document.getElementById("submitChart"), {
-      type: "bar",
-      data: { labels, datasets: [{ label: "提出数", data: values, backgroundColor: "rgba(54,162,235,0.6)", borderColor: "rgba(54,162,235,1)", borderWidth: 1 }] },
-      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-    });
+  function showToast(msg){
+    const t=document.getElementById("toast");
+    t.textContent=msg;
+    t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"),2000);
   }
-  document.addEventListener("DOMContentLoaded", loadGraph);
 
-  // 📈 日別提出率の推移
-  document.addEventListener("DOMContentLoaded", () => {
-    const ctx = document.getElementById("rateChart");
-    if (!ctx) return;
+  /* ================= グラフ描画 ================= */
+  document.addEventListener("DOMContentLoaded",()=>{
+    const submissionCanvas=document.getElementById("submissionChart");
+    if(!submissionCanvas)return;
 
-    const labels = <%- JSON.stringify(rateLabels) %>;
-    const data = <%- JSON.stringify(rateValues) %>;
+    const trendLabels = <%- JSON.stringify(trendLabels || []) %>;
+    const trendCondition = <%- JSON.stringify(trendCondition || []) %>;
+    const trendMental = <%- JSON.stringify(trendMental || []) %>;
+    const rateLabels = <%- JSON.stringify(rateLabels || []) %>;
+    const rateValues = <%- JSON.stringify(rateValues || []) %>;
+    const submissionRate = <%- Number(submissionRate || 0) %>;
+    const avgCondition = <%- Number(avgCondition || 0) %>;
+    const avgMental = <%- Number(avgMental || 0) %>;
 
-    new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [{
-          label: "提出率（％）",
-          data: data,
-          fill: false,
-          borderColor: "#0078d4",
-          backgroundColor: "#0078d4",
-          tension: 0.2,
-          pointRadius: 4,
+    // 提出率円グラフ
+    const ctx1 = submissionCanvas.getContext("2d");
+    new Chart(ctx1,{
+      type:"doughnut",
+      data:{
+        labels:["提出済","未提出"],
+        datasets:[{
+          data:[submissionRate,100-submissionRate],
+          backgroundColor:["#0078d4","#ccc"]
         }]
       },
-      options: {
-        responsive: true,
-        scales: {
-          y: { beginAtZero: true, max: 100, title: { display: true, text: "提出率（％）" } },
-          x: { title: { display: true, text: "日付" } }
-        },
-        plugins: { legend: { display: true, position: "bottom" } }
+      options:{
+        plugins:{
+          title:{display:true,text:"提出率（全体）",font:{size:16}},
+          legend:{position:"bottom"}
+        }
+      }
+    });
+
+    // 平均棒グラフ
+    const avgCanvas=document.createElement("canvas");
+    submissionCanvas.parentElement.appendChild(avgCanvas);
+    new Chart(avgCanvas.getContext("2d"),{
+      type:"bar",
+      data:{
+        labels:["体調","メンタル"],
+        datasets:[{
+          data:[avgCondition,avgMental],
+          backgroundColor:["#4caf50","#ff9800"]
+        }]
+      },
+      options:{
+        plugins:{title:{display:true,text:"平均値（体調・メンタル）",font:{size:16}}},
+        scales:{y:{min:0,max:5,ticks:{stepSize:1}}}
+      }
+    });
+
+    // 推移折れ線
+    const trendCanvas=document.createElement("canvas");
+    submissionCanvas.parentElement.appendChild(trendCanvas);
+    new Chart(trendCanvas.getContext("2d"),{
+      type:"line",
+      data:{
+        labels:trendLabels,
+        datasets:[
+          {label:"体調平均",data:trendCondition,borderColor:"#0078d4",fill:false},
+          {label:"メンタル平均",data:trendMental,borderColor:"#ff9800",fill:false}
+        ]
+      },
+      options:{
+        plugins:{title:{display:true,text:"日別平均推移",font:{size:16}}},
+        scales:{y:{min:0,max:5,ticks:{stepSize:1}}}
+      }
+    });
+
+    // 提出率推移
+    const rateCanvas=document.createElement("canvas");
+    submissionCanvas.parentElement.appendChild(rateCanvas);
+    new Chart(rateCanvas.getContext("2d"),{
+      type:"line",
+      data:{
+        labels:rateLabels,
+        datasets:[{
+          label:"提出率(%)",data:rateValues,borderColor:"#4caf50",fill:false
+        }]
+      },
+      options:{
+        plugins:{title:{display:true,text:"日別提出率の推移",font:{size:16}}},
+        scales:{y:{min:0,max:100,ticks:{stepSize:10}}}
       }
     });
   });
+
+  /* ================= その他 ================= */
+  window.logout=function(){if(confirm("ログアウトしますか？"))location.href="/logout";}
+  window.filterByRange=function(){
+    const f=document.querySelector("#filterFrom").value;
+    const t=document.querySelector("#filterTo").value;
+    document.querySelectorAll("#entryTable tbody tr").forEach(r=>{
+      const d=r.dataset.date;
+      r.style.display=(!f||d>=f)&&(!t||d<=t)?"":"none";
+    });
+  };
+  window.resetRange=function(){
+    document.querySelector("#filterFrom").value="";
+    document.querySelector("#filterTo").value="";
+    document.querySelectorAll("#entryTable tbody tr").forEach(r=>r.style.display="");
+  };
+})();
 </script>
 </body>
 </html>

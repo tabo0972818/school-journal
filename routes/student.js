@@ -1,107 +1,104 @@
 // routes/student.js
 import express from "express";
-import sqlite3 from "sqlite3";
-import { open } from "sqlite";
-import path from "path";
-import { fileURLToPath } from "url";
+import { getDb, logAction, getJSTTimestamp } from "../utils/log.js";
 
 const router = express.Router();
 
 // =======================
-// 📂 DB接続設定
+// 🕒 JST日付取得
 // =======================
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, "../db/data.db");
-
-async function getDb() {
-  return open({ filename: dbPath, driver: sqlite3.Database });
+function getTodayJST() {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
 }
 
 // =======================
-// 🧑‍🎓 生徒ページ表示
+// 🧑‍🎓 生徒ダッシュボード
 // =======================
 router.get("/", async (req, res) => {
+  let db;
   try {
-    const db = await getDb();
-    const studentId = req.query.user; // 例: /student?user=s3C10
-
-    // 🧠 生徒情報取得
+    db = await getDb();
+    const studentId = req.query.user;
     const student = await db.get("SELECT * FROM users WHERE id = ?", [studentId]);
-    if (!student) {
-      await db.close();
-      return res.render("error", { message: "生徒情報が見つかりません。" });
-    }
+    if (!student) return res.render("error", { message: "生徒情報が見つかりません。" });
 
-    // 📋 提出履歴取得
     const entries = await db.all(
       "SELECT * FROM entries WHERE student_id = ? ORDER BY date DESC",
       [studentId]
     );
 
-    // 📈 グラフ用データ（5段階スケール対応）
     const chartData = entries.slice(0, 10).reverse().map((e) => ({
       date: e.date,
       condition: Number(e.condition) || 0,
       mental: Number(e.mental) || 0,
     }));
 
-    await db.close();
-
-    // URLクエリからalertメッセージを取得
-    const alertMessage = req.query.alert || "";
-
     res.render("student_dashboard", {
       title: "生徒ダッシュボード",
       student,
       entries,
       chartData,
-      alertMessage,
+      alertMessage: req.query.alert || "",
     });
   } catch (err) {
-    console.error("⚠️ 生徒ページエラー:", err);
+    console.error("⚠️ studentページエラー:", err);
     res.status(500).render("error", { message: "DBエラー", error: err });
+  } finally {
+    if (db) await db.close();
   }
 });
 
 // =======================
-// 📝 提出処理
+// 📝 提出・修正処理
 // =======================
 router.post("/", async (req, res) => {
+  let db;
   try {
-    const db = await getDb();
+    db = await getDb();
     const { student_id, condition, mental, reflection, consultation } = req.body;
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayJST();
 
-    // 🧩 1日1回制限
+    const student = await db.get("SELECT * FROM users WHERE id = ?", [student_id]);
+    if (!student) return res.redirect(`/student?user=${student_id}&alert=notfound`);
+
+    const { class_name: className, grade } = student;
+
     const existing = await db.get(
-      "SELECT id FROM entries WHERE student_id = ? AND date = ?",
+      "SELECT * FROM entries WHERE student_id=? AND date=?",
       [student_id, today]
     );
 
     if (existing) {
-      await db.close();
-      return res.redirect(`/student?user=${student_id}&alert=already`);
+      if (!existing.is_read) {
+        await db.run(
+          `UPDATE entries SET condition=?, mental=?, reflection=?, consultation=?,
+           is_read=0, teacher_comment='', liked=0 WHERE id=?`,
+          [condition, mental, reflection, consultation, existing.id]
+        );
+
+        await logAction(db, student_id, "student", "修正再提出", existing.id, "未既読状態で再提出");
+        return res.redirect(`/student?user=${student_id}&alert=resubmit`);
+      } else {
+        return res.redirect(`/student?user=${student_id}&alert=locked`);
+      }
     }
 
-    // 🎓 クラス名取得
-    const student = await db.get("SELECT * FROM users WHERE id = ?", [student_id]);
-    const className = student?.class_name || "";
-
-    // 💾 データ登録（相談欄含む）
     await db.run(
-      `INSERT INTO entries 
-       (student_id, class_name, date, condition, mental, reflection, consultation, is_read)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
-      [student_id, className, today, condition, mental, reflection, consultation]
+      `INSERT INTO entries
+         (student_id, grade, class_name, date, condition, mental, reflection, consultation, is_read)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [student_id, grade, className, today, condition, mental, reflection, consultation]
     );
 
-    await db.close();
-    console.log(`✅ 提出完了: ${student_id}`);
+    await logAction(db, student_id, "student", "提出", student_id, "初回提出");
     return res.redirect(`/student?user=${student_id}&alert=success`);
   } catch (err) {
-    console.error("❌ 提出エラー:", err);
-    return res.redirect(`/student?user=${req.body.student_id}&alert=error`);
+    console.error("❌ student提出エラー:", err);
+    res.redirect(`/student?user=${req.body.student_id}&alert=error`);
+  } finally {
+    if (db) await db.close();
   }
 });
 

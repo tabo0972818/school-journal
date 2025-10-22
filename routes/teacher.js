@@ -1,45 +1,36 @@
 // routes/teacher.js
 import express from "express";
-import sqlite3 from "sqlite3";
-import { open } from "sqlite";
-import path from "path";
-import { fileURLToPath } from "url";
+import { getDb, logAction, getJSTTimestamp } from "../utils/log.js";
 
 const router = express.Router();
 
 // =======================
-// 📂 DB接続設定
+// 🕒 JST日付取得
 // =======================
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, "../db/data.db");
-
-async function getDb() {
-  return open({ filename: dbPath, driver: sqlite3.Database });
+function getTodayJST() {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
 }
 
 // ==============================
-// 👨‍🏫 担任ダッシュボード表示
+// 👨‍🏫 担任ダッシュボード
 // ==============================
 router.get("/", async (req, res) => {
+  let db;
   try {
-    const db = await getDb();
+    db = await getDb();
 
-    // 担任の情報取得
     const teacherId = req.query.user || req.session?.user?.id;
     const teacher = await db.get("SELECT * FROM users WHERE id = ?", [teacherId]);
     if (!teacher) {
-      await db.close();
-      return res.render("error", {
-        title: "エラー",
-        message: "担任情報が見つかりません。"
-      });
+      return res.render("error", { title: "エラー", message: "担任情報が見つかりません。" });
     }
 
     const { grade, class_name: className } = teacher;
-    const today = new Date().toISOString().split("T")[0];
+    const todayJST = getTodayJST();
+    const todayUTC = new Date().toISOString().slice(0, 10);
 
-    // 🔹 クラス全員の提出履歴
     const entries = await db.all(
       `SELECT e.*, u.name AS student_name
        FROM entries e
@@ -49,66 +40,59 @@ router.get("/", async (req, res) => {
       [grade, className]
     );
 
-    // 🔹 クラス全員の生徒
     const allStudents = await db.all(
-      `SELECT id, name FROM users 
-        WHERE role='student' AND grade=? AND class_name=? 
-        ORDER BY id ASC`,
+      "SELECT id, name FROM users WHERE role='student' AND grade=? AND class_name=?",
       [grade, className]
     );
 
-    // 🔹 今日提出済み
     const submittedToday = await db.all(
-      `SELECT DISTINCT student_id FROM entries 
-        WHERE grade=? AND class_name=? AND date=?`,
-      [grade, className, today]
+      `SELECT DISTINCT e.student_id
+       FROM entries e
+       JOIN users u ON e.student_id = u.id
+       WHERE u.grade=? AND u.class_name=? 
+       AND (
+         e.date LIKE ? OR e.date LIKE ? OR e.date LIKE ? || '%' OR e.date LIKE ? || '%'
+       )`,
+      [grade, className, todayJST, todayUTC, todayJST, todayUTC]
     );
-    const submittedTodaySet = new Set(submittedToday.map(r => r.student_id));
 
-    // 🔹 未提出者
-    const unsubmitted = allStudents.filter(s => !submittedTodaySet.has(s.id));
+    const submittedSet = new Set(submittedToday.map(r => String(r.student_id)));
+    const unsubmitted = allStudents.filter(s => !submittedSet.has(String(s.id)));
 
-    // 🔹 提出率
     const submissionRate = allStudents.length
-      ? Math.round((submittedTodaySet.size / allStudents.length) * 100)
+      ? Math.round((submittedSet.size / allStudents.length) * 100)
       : 0;
 
-    // 🔹 平均体調・メンタル
     const avgCondition = entries.length
-      ? (entries.reduce((a, b) => a + (Number(b.condition) || 0), 0) / entries.length).toFixed(1)
-      : 0;
-    const avgMental = entries.length
-      ? (entries.reduce((a, b) => a + (Number(b.mental) || 0), 0) / entries.length).toFixed(1)
+      ? (entries.reduce((sum, e) => sum + (Number(e.condition) || 0), 0) / entries.length).toFixed(1)
       : 0;
 
-    // 🔹 日別体調・メンタル平均
+    const avgMental = entries.length
+      ? (entries.reduce((sum, e) => sum + (Number(e.mental) || 0), 0) / entries.length).toFixed(1)
+      : 0;
+
     const trendData = await db.all(
       `SELECT date,
               ROUND(AVG(condition),1) AS avg_condition,
               ROUND(AVG(mental),1) AS avg_mental
-         FROM entries
-        WHERE grade=? AND class_name=?
-        GROUP BY date
-        ORDER BY date ASC`,
+       FROM entries
+       WHERE grade=? AND class_name=?
+       GROUP BY date
+       ORDER BY date ASC`,
       [grade, className]
     );
 
-    // 🔹 日別提出率（グラフ用）
-    const rateTrend = await db.all(`
-      SELECT date,
-             COUNT(DISTINCT student_id) * 100.0 / (
-               SELECT COUNT(*) FROM users 
-                WHERE role='student' AND grade=? AND class_name=?
-             ) AS rate
-        FROM entries
+    const rateTrend = await db.all(
+      `SELECT date,
+              ROUND(COUNT(DISTINCT student_id) * 100.0 /
+                (SELECT COUNT(*) FROM users WHERE role='student' AND grade=? AND class_name=?),1) AS rate
+       FROM entries
        WHERE grade=? AND class_name=?
        GROUP BY date
-       ORDER BY date ASC
-    `, [grade, className, grade, className]);
+       ORDER BY date ASC`,
+      [grade, className, grade, className]
+    );
 
-    await db.close();
-
-    // ✅ テンプレートにデータを渡す
     res.render("teacher_dashboard", {
       title: `${grade}${className} 担任ダッシュボード`,
       teacherName: teacher.name,
@@ -123,58 +107,60 @@ router.get("/", async (req, res) => {
       trendCondition: trendData.map(t => t.avg_condition),
       trendMental: trendData.map(t => t.avg_mental),
       rateLabels: rateTrend.map(t => t.date),
-      rateValues: rateTrend.map(t => t.rate)
+      rateValues: rateTrend.map(t => t.rate),
     });
   } catch (err) {
     console.error("❌ teacher_dashboard 表示エラー:", err);
     res.status(500).render("error", {
       title: "サーバーエラー",
       message: "担任ダッシュボード表示中にエラーが発生しました。",
-      error: err
+      error: err,
     });
+  } finally {
+    if (db) await db.close();
   }
 });
 
 // ==============================
-// ✅ 既読＋🔥スタンプ処理
+// ✅ 既読＋🔥＋コメント記録
 // ==============================
 router.post("/readlike/:id", async (req, res) => {
+  let db;
   try {
-    const db = await getDb();
+    db = await getDb();
     const entryId = req.params.id;
     const comment = req.body.comment || "";
+    const teacherId = req.session.user?.id || "unknown";
 
     await db.run(
       "UPDATE entries SET is_read=1, teacher_comment=?, liked=1 WHERE id=?",
       [comment, entryId]
     );
 
-    const timestamp = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-    await db.run(
-      "INSERT INTO logs (action, target_id, detail, time) VALUES (?, ?, ?, ?)",
-      ["既読＋🔥", entryId, comment, timestamp]
-    );
-
-    await db.close();
+    await logAction(db, teacherId, "teacher", "既読＋🔥", entryId, `担任コメント: ${comment}`);
     res.json({ success: true });
   } catch (err) {
     console.error("❌ readlike エラー:", err);
     res.json({ success: false, error: err.message });
+  } finally {
+    if (db) await db.close();
   }
 });
 
 // ==============================
-// 📊 全データ取得（デバッグ用）
+// 📊 全データ取得（デバッグ）
 // ==============================
 router.get("/records", async (req, res) => {
+  let db;
   try {
-    const db = await getDb();
+    db = await getDb();
     const data = await db.all("SELECT * FROM entries ORDER BY date ASC");
-    await db.close();
     res.json(data);
   } catch (err) {
     console.error("❌ records エラー:", err);
     res.status(500).json({ error: "データ取得失敗" });
+  } finally {
+    if (db) await db.close();
   }
 });
 

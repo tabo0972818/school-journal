@@ -1,135 +1,241 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title><%= title || "管理者ダッシュボード" %></title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
-    body { font-family: "Segoe UI","Noto Sans JP",sans-serif; background:#f5f7fa; margin:0; padding:0; }
-    header { display:flex; justify-content:space-between; align-items:center; background:#343a40; color:white; padding:15px 20px; }
-    header img { width:40px; cursor:pointer; transition:.3s; }
-    header img:hover { opacity:0.7; }
-    main { max-width:1100px; margin:auto; padding:25px; }
-    section { background:white; border-radius:10px; padding:20px; margin-bottom:25px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
-    h2 { border-left:5px solid #0078d4; padding-left:10px; color:#0078d4; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th, td { border:1px solid #ddd; padding:8px; text-align:center; }
-    th { background:#0078d4; color:white; }
-    tr:nth-child(even){background:#f9f9f9;}
-    button { background:#0078d4; color:white; border:none; border-radius:5px; padding:6px 12px; cursor:pointer; }
-    button:hover { background:#005fa3; }
-    .btn-danger { background:#dc3545; }
+    body{font-family:"Noto Sans JP",sans-serif;background:#f5f7fa;margin:0;}
+    header{display:flex;justify-content:space-between;align-items:center;background:#0078d4;color:#fff;padding:15px 20px;font-size:1.2em;}
+    header img{width:36px;height:36px;cursor:pointer;border-radius:6px;}
+    main{max-width:1200px;margin:auto;padding:24px;}
+    h2{border-left:5px solid #0078d4;padding-left:10px;color:#0078d4;margin:24px 0 12px;}
+    .grid{display:grid;gap:14px;}
+    .grid.cols-4{grid-template-columns:repeat(4,1fr);}
+    .card{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:14px;}
+    .kpi{display:flex;flex-direction:column;gap:4px;}
+    .kpi .label{color:#555;font-size:.9rem;}
+    .kpi .value{font-size:1.6rem;font-weight:700;}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
+    .row > *{flex:1 1 180px;}
+    label{display:block;font-size:.9rem;color:#444;margin:.25rem 0;}
+    input,select{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;}
+    button{background:#0078d4;color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;}
+    button.secondary{background:#fff;color:#0078d4;border:1px solid #0078d4;}
+    button.danger{background:#dc3545;}
+    button:hover{filter:brightness(.95);}
+    table{width:100%;border-collapse:collapse;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);}
+    th,td{border:1px solid #eee;padding:10px;text-align:center;}
+    th{background:#0078d4;color:#fff;position:sticky;top:0;}
+    tr:nth-child(even){background:#fafafa;}
+    .actions{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px;}
+    .muted{color:#666;font-size:.9rem;}
+    .right{justify-content:flex-end;}
+    .space-between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+    .nowrap{white-space:nowrap;}
+    .section{margin-top:32px;}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #ddd;font-size:.8rem;background:#fff;}
+    .text-right{text-align:right;}
+    @media (max-width:900px){
+      .grid.cols-4{grid-template-columns:repeat(2,1fr);}
+    }
   </style>
 </head>
 <body>
 <header>
-  <h1>🧑‍💼 管理者ダッシュボード</h1>
+  <h1>👨‍💼 管理者ダッシュボード</h1>
   <img src="/images/logout.png" alt="logout" onclick="logout()">
 </header>
 
 <main>
-  <!-- 👥 ユーザー管理 -->
-  <section>
-    <h2>👥 ユーザー管理</h2>
-    <form method="POST" action="/admin/addUser">
-      <input type="text" name="id" placeholder="ID" required>
-      <input type="text" name="name" placeholder="氏名" required>
-      <select name="role" required>
-        <option value="student">生徒</option>
-        <option value="teacher">担任</option>
-        <option value="admin">管理者</option>
-      </select>
-      <select name="grade"><option>1年</option><option>2年</option><option>3年</option></select>
-      <select name="class_name"><option>A</option><option>B</option><option>C</option></select>
-      <input type="password" name="password" placeholder="パスワード" required>
-      <button>追加 / 更新</button>
-    </form>
-    <table>
-      <thead><tr><th>ID</th><th>名前</th><th>役割</th><th>学年</th><th>クラス</th><th>操作</th></tr></thead>
-      <tbody>
-        <% users.forEach(u=>{ %>
-          <tr>
-            <td><%= u.id %></td>
-            <td><%= u.name %></td>
-            <td><%= u.role %></td>
-            <td><%= u.grade %></td>
-            <td><%= u.class_name %></td>
-            <td>
-              <form method="POST" action="/admin/deleteUser/<%= u.id %>" onsubmit="return confirm('削除しますか？')">
-                <button class="btn-danger">削除</button>
-              </form>
-            </td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+  <!-- 📊 KPI / 統計 -->
+  <section class="section">
+    <h2>📊 統計</h2>
+    <div class="grid cols-4">
+      <div class="card kpi"><span class="label">提出総数</span><span class="value"><%= totalEntries %></span></div>
+      <div class="card kpi"><span class="label">未読</span><span class="value"><%= unreadCount %></span></div>
+      <div class="card kpi"><span class="label">既読</span><span class="value"><%= readCount %></span></div>
+      <div class="card kpi"><span class="label">平均 体調 / メンタル</span><span class="value"><%= avgCondition %> / <%= avgMental %></span></div>
+    </div>
+    <div class="toolbar right">
+      <form action="/admin/reset" method="post" onsubmit="return confirm('提出データを全削除して初期化します。よろしいですか？')">
+        <button class="danger">🧹 提出データ 初期化</button>
+      </form>
+    </div>
   </section>
 
-  <!-- 📋 提出データ -->
-  <section>
-    <h2>📋 提出データ一覧</h2>
-    <form method="POST" action="/admin/reset" onsubmit="return confirm('提出履歴を初期化しますか？')">
-      <button class="btn-danger">提出データ初期化</button>
+  <!-- ➕ ユーザー追加 / 更新 -->
+  <section class="section">
+    <div class="space-between">
+      <h2>➕ アカウント追加・更新</h2>
+      <span class="muted">既存IDで送信すると「更新」、未登録IDなら「追加」になります。</span>
+    </div>
+    <form action="/admin/addUser" method="post" class="card">
+      <div class="row">
+        <div><label for="id">ID</label><input id="id" name="id" type="text" placeholder="例: student1A01 / teacher2B" required></div>
+        <div><label for="name">名前</label><input id="name" name="name" type="text" placeholder="例: 山田太郎" required></div>
+        <div><label for="role">役割</label>
+          <select id="role" name="role" required>
+            <option value="student">student（生徒）</option>
+            <option value="teacher">teacher（担任）</option>
+            <option value="admin">admin（管理者）</option>
+          </select>
+        </div>
+        <div><label for="password">パスワード</label><input id="password" name="password" type="text" placeholder="初期/更新パスワード" required></div>
+      </div>
+      <div class="row">
+        <div><label for="grade">学年</label>
+          <select id="grade" name="grade" required>
+            <option value="">選択</option><option value="1">1年</option><option value="2">2年</option><option value="3">3年</option>
+          </select>
+        </div>
+        <div><label for="class_name">クラス</label>
+          <select id="class_name" name="class_name" required>
+            <option value="">選択</option><option value="A">A組</option><option value="B">B組</option><option value="C">C組</option>
+          </select>
+        </div>
+        <div class="text-right"><label>&nbsp;</label><button type="submit">💾 登録 / 更新</button></div>
+      </div>
     </form>
-    <table>
-      <thead><tr><th>ID</th><th>ユーザー</th><th>日付</th><th>体調</th><th>メンタル</th><th>状態</th></tr></thead>
-      <tbody>
-        <% entries.forEach(e=>{ %>
-          <tr>
-            <td><%= e.id %></td>
-            <td><%= e.username %></td>
-            <td><%= e.date %></td>
-            <td><%= e.condition %></td>
-            <td><%= e.mental %></td>
-            <td><%= e.status %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
   </section>
 
-  <!-- 📊 統計グラフ -->
-  <section>
-    <h2>📊 平均値</h2>
-    <canvas id="chart" style="max-width:500px;height:220px;margin:auto;"></canvas>
-    <p>総提出：<%= totalEntries %> 件　未読：<%= unreadCount %> 件　既読：<%= readCount %> 件</p>
+  <!-- 🔍 フィルター -->
+  <section class="section">
+    <div class="space-between">
+      <h2>🔍 ユーザー一覧（フィルター付き）</h2>
+      <div class="toolbar">
+        <button class="secondary nowrap" onclick="exportToPDF('userTableArea','users_list')">🖨️ PDF出力</button>
+        <button class="secondary nowrap" onclick="exportToCSV('userTable','users_list')">📄 CSV出力</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div><label for="filterGrade">学年</label><select id="filterGrade"><option value="">すべて</option><option value="1">1年</option><option value="2">2年</option><option value="3">3年</option></select></div>
+        <div><label for="filterClass">クラス</label><select id="filterClass"><option value="">すべて</option><option value="A">A組</option><option value="B">B組</option><option value="C">C組</option></select></div>
+        <div><label for="filterRole">役割</label><select id="filterRole"><option value="">すべて</option><option value="student">student</option><option value="teacher">teacher</option><option value="admin">admin</option></select></div>
+        <div><label for="filterKeyword">キーワード（ID/名前）</label><input id="filterKeyword" type="text" placeholder="例: yamada / student1A"></div>
+        <div class="text-right"><label>&nbsp;</label><button class="secondary" onclick="clearUserFilters()">🧼 クリア</button></div>
+      </div>
+    </div>
+
+    <div id="userTableArea" class="section">
+      <table id="userTable">
+        <thead>
+          <tr><th>ID</th><th>名前</th><th>学年</th><th>クラス</th><th>役割</th><th>操作</th></tr>
+        </thead>
+        <tbody id="userTbody">
+          <% users.forEach(u=>{ %>
+            <tr data-grade="<%= u.grade %>" data-class="<%= u.class_name %>" data-role="<%= u.role %>" data-id="<%= u.id %>" data-name="<%= u.name %>">
+              <td><span class="badge"><%= u.id %></span></td>
+              <td><%= u.name %></td>
+              <td><%= u.grade %></td>
+              <td><%= u.class_name %></td>
+              <td><%= u.role %></td>
+              <td class="actions">
+                <form action="/admin/deleteUser/<%= u.id %>" method="post" onsubmit="return confirm('ID: <%= u.id %> を削除します。よろしいですか？')">
+                  <button class="danger">🗑️ 削除</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   </section>
 
-  <!-- 🕓 ログ -->
-  <section>
-    <h2>🕓 操作ログ</h2>
-    <form method="POST" action="/admin/logs/clear" onsubmit="return confirm('ログを全削除しますか？')">
-      <button class="btn-danger">ログ全削除</button>
-    </form>
-    <table>
-      <thead><tr><th>ID</th><th>ユーザー</th><th>操作</th><th>日時</th></tr></thead>
-      <tbody>
-        <% logs.forEach(l=>{ %>
-          <tr>
-            <td><%= l.id %></td>
-            <td><%= l.user %></td>
-            <td><%= l.action %></td>
-            <td><%= l.time %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+  <!-- 🧾 操作ログ -->
+  <section class="section">
+    <div class="space-between">
+      <h2>🧾 操作ログ</h2>
+      <div class="toolbar">
+        <button class="secondary nowrap" onclick="exportToPDF('logTableArea','operation_logs')">🖨️ PDF出力</button>
+        <button class="secondary nowrap" onclick="exportToCSV('logTable','operation_logs')">📄 CSV出力</button>
+        <form action="/admin/logs/clear" method="post" onsubmit="return confirm('操作ログを全削除します。よろしいですか？')">
+          <button class="danger nowrap">🧹 ログ全削除</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div><label for="logFilterUser">ユーザー名</label><input id="logFilterUser" type="text" placeholder="例: 山田 / teacher1A"></div>
+        <div><label for="logFilterAction">操作種別</label><input id="logFilterAction" type="text" placeholder="例: ログイン / ユーザー追加 など"></div>
+        <div><label for="logFilterDateFrom">日付（From）</label><input id="logFilterDateFrom" type="date"></div>
+        <div><label for="logFilterDateTo">日付（To）</label><input id="logFilterDateTo" type="date"></div>
+        <div class="text-right"><label>&nbsp;</label><button class="secondary" onclick="clearLogFilters()">🧼 クリア</button></div>
+      </div>
+    </div>
+
+    <div id="logTableArea" class="section">
+      <table id="logTable">
+        <thead><tr><th>ID</th><th>ユーザー</th><th>操作</th><th>日時</th></tr></thead>
+        <tbody id="logTbody">
+          <% logs.forEach(l => { %>
+            <tr data-user="<%= l.user_name || '' %>" data-action="<%= l.action || '' %>" data-time="<%= l.time || '' %>">
+              <td><%= l.id %></td><td><%= l.user_name %></td><td><%= l.action %></td><td><%= l.time %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   </section>
 </main>
 
+<script src="../js/dashboard_admin.js"></script>
 <script>
-new Chart(document.getElementById('chart'), {
-  type: 'bar',
-  data: {
-    labels: ['体調', 'メンタル'],
-    datasets: [{ data: [<%= avgCondition %>, <%= avgMental %>], backgroundColor: ['#0078d4', '#f28e2b'] }]
-  },
-  options: { scales: { y: { beginAtZero: true, max: 5 } }, plugins: { legend: { display: false } } }
-});
-function logout() {
-  if (confirm("ログアウトしますか？")) window.location.href = "/logout";
+  // ===== CSV出力（Excel互換 / 操作列除外） =====
+  function exportToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return alert("対象が見つかりません");
+    const rows = [...table.querySelectorAll("tr")];
+    const csv = rows.map(r => {
+      const cells = [...r.children].slice(0, -1); // 操作列除外
+      return cells.map(c => {
+        let t = c.innerText || "";
+        t = t.replace(/\r?\n/g, " ").replace(/"/g, '""');
+        return `"${t}"`;
+      }).join(",");
+    }).join("\r\n");
+    const bom = new Uint8Array([0xEF,0xBB,0xBF]);
+    const blob = new Blob([bom, csv], { type:"text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename + ".csv";
+    link.click();
+  }
+
+  // ===== PDF出力（削除ボタン列を非表示） =====
+  // ===== PDF出力（操作列を非表示） =====
+function exportToPDF(elementId, filename) {
+  const element = document.getElementById(elementId);
+  if (!element) return alert("対象が見つかりません");
+
+  // 最後の「操作」列を非表示
+  const actionCols = element.querySelectorAll("th:last-child, td:last-child");
+  actionCols.forEach(el => (el.style.display = "none"));
+
+  const opt = {
+    margin: [10, 10, 10, 10],
+    filename: filename + ".pdf",
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+  };
+
+  html2pdf().set(opt).from(element).save().then(() => {
+    // 元に戻す
+    actionCols.forEach(el => (el.style.display = ""));
+  }).catch(() => {
+    actionCols.forEach(el => (el.style.display = ""));
+  });
 }
+
+  // ===== ログアウト =====
+  function logout(){ if(confirm("ログアウトしますか？")) location.href="/logout"; }
 </script>
 </body>
 </html>
