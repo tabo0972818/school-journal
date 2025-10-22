@@ -73,3 +73,10 @@ app.get("/logout", (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+
+// =============================
+// 🏠 ルートページ（トップ画面）
+// =============================
+app.get("/", (req, res) => {
+  res.send("✅ サーバーは正常に動作しています！（Render公開版）");
+});
