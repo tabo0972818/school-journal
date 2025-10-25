@@ -2,11 +2,9 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title><%= title %></title>
-  <img src="/images/school_logo.png" alt="学校ロゴ" class="school-logo">
+  <title><%= title || "連絡帳システム ログイン" %></title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    /* 全体背景 */
     body {
       font-family: "Noto Sans JP", sans-serif;
       background: linear-gradient(135deg, #e3f2fd, #bbdefb);
@@ -17,12 +15,11 @@
       margin: 0;
     }
 
-    /* ログインカード */
     .login-container {
       background: #fff;
       padding: 40px 50px;
       border-radius: 16px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       text-align: center;
       width: 350px;
       transition: all 0.3s ease;
@@ -30,7 +27,13 @@
 
     .login-container:hover {
       transform: translateY(-3px);
-      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+    }
+
+    .school-logo {
+      width: 60px;
+      height: 60px;
+      margin-bottom: 10px;
     }
 
     h1 {
@@ -39,7 +42,6 @@
       color: #1976d2;
     }
 
-    /* 入力欄 */
     input {
       width: 90%;
       padding: 10px;
@@ -53,10 +55,9 @@
     input:focus {
       border-color: #1976d2;
       outline: none;
-      box-shadow: 0 0 4px rgba(25, 118, 210, 0.3);
+      box-shadow: 0 0 4px rgba(25,118,210,0.3);
     }
 
-    /* ボタン */
     button {
       width: 95%;
       background-color: #1976d2;
@@ -70,11 +71,21 @@
       transition: background-color 0.3s ease;
     }
 
-    button:hover {
-      background-color: #0d47a1;
-    }
+    button:hover { background-color: #0d47a1; }
 
-    /* エラーメッセージ */
+    .manual-btn {
+      display: inline-block;
+      background-color: #4CAF50;
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 0.95em;
+      margin-top: 15px;
+      transition: background-color 0.3s;
+    }
+    .manual-btn:hover { background-color: #45a049; }
+
     .error {
       color: #d32f2f;
       font-weight: bold;
@@ -85,9 +96,8 @@
       padding: 8px;
     }
 
-    /* ログアウトボタン画像対応など共通調整を意識 */
     .footer {
-      margin-top: 15px;
+      margin-top: 20px;
       font-size: 0.9em;
       color: #777;
     }
@@ -95,6 +105,7 @@
 </head>
 <body>
   <div class="login-container">
+    <img src="/images/school_logo.png" alt="学校ロゴ" class="school-logo">
     <h1>連絡帳システム ログイン</h1>
 
     <% if (typeof error !== "undefined" && error) { %>
@@ -106,6 +117,11 @@
       <input type="password" name="password" placeholder="パスワード" required><br>
       <button type="submit">ログイン</button>
     </form>
+
+    <!-- ✅ マニュアルダウンロードボタン -->
+    <a href="/doc/manual_final.docx" class="manual-btn" download>
+      📄 使い方マニュアルをダウンロード
+    </a>
 
     <div class="footer">
       <p>© 2026 JPT Parallel Technologies</p>
