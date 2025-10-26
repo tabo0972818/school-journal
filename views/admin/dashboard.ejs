@@ -1,0 +1,86 @@
+<!-- views/admin/dashboard.ejs -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ユーザー管理ダッシュボード</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { font-family: sans-serif; padding: 40px; background: #f8f8f8; }
+    h1 { text-align: center; margin-bottom: 30px; }
+    form { margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    input, select { margin: 5px; padding: 8px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background: #eee; }
+    .msg { color: green; text-align: center; margin-bottom: 10px; }
+    .error { color: red; text-align: center; margin-bottom: 10px; }
+    button { background: #007bff; color: #fff; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <h1>ユーザー管理ダッシュボード</h1>
+
+  <% if (message) { %>
+    <div class="msg"><%= message %></div>
+  <% } %>
+  <% if (error) { %>
+    <div class="error"><%= error %></div>
+  <% } %>
+
+  <form action="/admin/add" method="POST">
+    <h3>新規ユーザー登録</h3>
+    <input type="text" name="name" placeholder="氏名" required>
+    <input type="email" name="email" placeholder="メール" required>
+    <select name="role" required>
+      <option value="">役割を選択</option>
+      <option value="student">生徒</option>
+      <option value="teacher">担任</option>
+    </select>
+    <select name="grade" required>
+      <option value="">学年</option>
+      <option value="1年">1年</option>
+      <option value="2年">2年</option>
+      <option value="3年">3年</option>
+    </select>
+    <select name="className" required>
+      <option value="">クラス</option>
+      <option value="A">A</option>
+      <option value="B">B</option>
+      <option value="C">C</option>
+    </select>
+    <button type="submit">登録</button>
+  </form>
+
+  <h3>登録済みユーザー一覧</h3>
+  <table>
+    <tr>
+      <th>氏名</th>
+      <th>メール</th>
+      <th>役割</th>
+      <th>学年</th>
+      <th>クラス</th>
+      <th>削除</th>
+    </tr>
+    <% if (users.length === 0) { %>
+      <tr><td colspan="6">登録データがありません。</td></tr>
+    <% } else { %>
+      <% users.forEach(user => { %>
+        <tr>
+          <td><%= user.name %></td>
+          <td><%= user.email %></td>
+          <td><%= user.role %></td>
+          <td><%= user.grade %></td>
+          <td><%= user.class %></td>
+          <td>
+            <form action="/admin/delete/<%= user.id %>" method="POST" style="display:inline;">
+              <button type="submit" onclick="return confirm('削除しますか？')">削除</button>
+            </form>
+          </td>
+        </tr>
+      <% }); %>
+    <% } %>
+  </table>
+</body>
+</html>
