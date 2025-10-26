@@ -9,126 +9,59 @@
   <style>
     body {
       font-family: "Segoe UI","Noto Sans JP",sans-serif;
-      background: #f5f7fa;
-      margin: 0;
-      padding: 0;
+      background:#f5f7fa;margin:0;padding:0;
     }
     header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #0078d4;
-      color: white;
-      padding: 15px 20px;
-      font-size: 1.2em;
+      display:flex;justify-content:space-between;align-items:center;
+      background:#0078d4;color:white;padding:15px 20px;font-size:1.2em;
     }
-    header img {
-      width: 36px;
-      height: 36px;
-      cursor: pointer;
-      border-radius: 6px;
-      transition: .3s;
-    }
-    header img:hover {
-      background: rgba(255,255,255,0.3);
-    }
-    main {
-      max-width: 1000px;
-      margin: auto;
-      padding: 25px;
-    }
-    h2 {
-      border-left: 5px solid #0078d4;
-      padding-left: 10px;
-      color: #0078d4;
-    }
+    header img { width:36px;height:36px;cursor:pointer;border-radius:6px;transition:.3s; }
+    header img:hover { background:rgba(255,255,255,0.3); }
+    main { max-width:1000px;margin:auto;padding:25px; }
+    h2 { border-left:5px solid #0078d4;padding-left:10px;color:#0078d4; }
     form {
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      margin-bottom: 25px;
+      background:#fff;padding:20px;border-radius:10px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);margin-bottom:25px;
     }
-    select, textarea, button, input[type="date"] {
-      font-size: 1em;
-      margin: 6px 0;
-      padding: 8px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
+    select,textarea,button,input[type="date"] {
+      font-size:1em;margin:6px 0;padding:8px;border-radius:5px;border:1px solid #ccc;
     }
-    select, textarea, input[type="date"] {
-      width: 100%;
-    }
+    select,textarea,input[type="date"] { width:100%; }
     button {
-      background: #0078d4;
-      color: #fff;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: .3s;
+      background:#0078d4;color:#fff;border:none;padding:8px 16px;
+      border-radius:5px;cursor:pointer;transition:.3s;
     }
-    button:hover {
-      background: #005fa3;
-    }
-    button:disabled {
-      background: #999;
-      cursor: not-allowed;
-    }
+    button:hover { background:#005fa3; }
+    button:disabled { background:#999;cursor:not-allowed; }
     table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      width:100%;border-collapse:collapse;background:white;
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);
     }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: center;
-      white-space: nowrap;
-    }
-    th {
-      background: #0078d4;
-      color: white;
-    }
-    tr:nth-child(even) {
-      background: #f9f9f9;
-    }
-    .status-read {
-      color: green;
-      font-weight: bold;
-    }
-    .status-unread {
-      color: red;
-      font-weight: bold;
-    }
-    /* トースト通知 */
+    th,td { border:1px solid #ddd;padding:8px;text-align:center;white-space:nowrap; }
+    th { background:#0078d4;color:white; }
+    tr:nth-child(even){background:#f9f9f9;}
+    .status-read { color:green;font-weight:bold; }
+    .status-unread { color:red;font-weight:bold; }
     .toast {
-      position: fixed;
-      right: 20px;
-      bottom: 20px;
-      background: #333;
-      color: #fff;
-      padding: 12px 18px;
-      border-radius: 8px;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      z-index: 10000;
-      font-size: 0.95em;
+      position: fixed;top: 20px;right: 20px;
+      background: rgba(0,0,0,0.85);color: #fff;
+      padding: 12px 18px;border-radius: 8px;
+      opacity: 0;pointer-events: none;
+      transition: opacity 0.4s, transform 0.4s;
+      transform: translateY(-20px);z-index: 1000;
     }
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    @media (max-width:768px) {
-      main { padding: 15px; }
-      table { font-size: 0.9em; }
+    .toast.show { opacity: 1;transform: translateY(0);pointer-events: auto; }
+    .toast.success { background: #009a3d; }
+    .toast.error { background: #d93025; }
+    .toast.info { background: #0078d4; }
+    .toast.warn { background: #ff8800; }
+    @media (max-width:768px){
+      main{padding:15px;}
+      table{font-size:0.9em;}
     }
   </style>
 </head>
 <body>
-  <img id="school-logo" src="/images/school_logo.png" alt="School Logo" onclick="goHome()">
   <header>
     <h1>📘 生徒ページ（<%= student.name %> / <%= student.class_name %>）</h1>
     <img src="/images/logout.png" alt="logout" onclick="logout()">
@@ -139,15 +72,19 @@
       <p id="alertMsg" style="display:none;"><%= alertMessage %></p>
     <% } %>
 
+    <!-- 📝 提出フォーム -->
     <section>
       <h2>📝 提出フォーム（前登校日のみ）</h2>
-      <%
+
+      <% 
         const todayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
         const todayEntry = entries.find(e => e.date === todayStr);
         const isLocked = (todayEntry && todayEntry.is_read === 1);
       %>
+
       <% if (isLocked) { %>
-        <div style="background:#ffe5e5;border:1px solid #ff9999;color:#c00;padding:12px;border-radius:8px;margin-bottom:15px;text-align:center;">
+        <div style="background:#ffe5e5;border:1px solid #ff9999;color:#c00;
+                    padding:12px;border-radius:8px;margin-bottom:15px;text-align:center;">
           ⚠️ 担任が確認済みのため、再提出・修正はできません。
         </div>
       <% } %>
@@ -175,17 +112,25 @@
         </select>
 
         <label>今日の振り返り：</label>
-        <textarea name="reflection" rows="3" placeholder="例：授業で〇〇を学んだ..." <%= isLocked ? "disabled" : "" %> required><%= todayEntry ? todayEntry.reflection : "" %></textarea>
+        <textarea name="reflection" rows="3" placeholder="例：授業で〇〇を学んだ..." 
+                  <%= isLocked ? "disabled" : "" %> required><%= todayEntry ? todayEntry.reflection : "" %></textarea>
 
         <label>相談欄（任意）：</label>
-        <textarea name="consultation" rows="3" placeholder="悩み・相談など（担任のみ閲覧可）" <%= isLocked ? "disabled" : "" %>><%= todayEntry ? todayEntry.consultation : "" %></textarea>
+        <textarea name="consultation" rows="3" 
+                  placeholder="悩み・相談など（担任のみ閲覧可）" 
+                  <%= isLocked ? "disabled" : "" %>><%= todayEntry ? todayEntry.consultation : "" %></textarea>
 
-        <button type="submit" <%= isLocked ? "disabled" : "" %>><%= todayEntry ? "修正を提出" : "提出" %></button>
+        <button type="submit" <%= isLocked ? "disabled" : "" %>>
+          <%= todayEntry ? "修正を提出" : "提出" %>
+        </button>
       </form>
     </section>
 
+    <!-- 📋 提出履歴 -->
     <section>
       <h2>📋 提出履歴</h2>
+
+      <!-- 🔍 日付範囲で絞り込み＋出力 -->
       <div style="margin-bottom:10px;">
         <label>期間：</label>
         <input type="date" id="filterFrom"> ～ 
@@ -200,12 +145,8 @@
       <table id="entryTable">
         <thead>
           <tr>
-            <th>日付</th>
-            <th>体調</th>
-            <th>メンタル</th>
-            <th>振り返り</th>
-            <th>状態</th>
-            <th>担任コメント</th>
+            <th>日付</th><th>体調</th><th>メンタル</th>
+            <th>振り返り</th><th>状態</th><th>担任コメント</th>
           </tr>
         </thead>
         <tbody>
@@ -216,7 +157,9 @@
                 <td><%= e.condition ? e.condition : "-" %></td>
                 <td><%= e.mental ? e.mental : "-" %></td>
                 <td style="text-align:left;"><%= e.reflection || "" %></td>
-                <td class="<%= e.is_read ? 'status-read' : 'status-unread' %>"><%= e.is_read ? "✅ 既読" : "⏰ 未読" %></td>
+                <td class="<%= e.is_read ? 'status-read' : 'status-unread' %>">
+                  <%= e.is_read ? "✅ 既読" : "⏰ 未読" %>
+                </td>
                 <td style="text-align:left;"><%= e.teacher_comment || "-" %></td>
               </tr>
             <% }) %>
@@ -226,6 +169,7 @@
         </tbody>
       </table>
 
+      <!-- 📊 体調・メンタル平均グラフ -->
       <div style="margin-top:25px;">
         <h2>📈 期間内の平均（体調・メンタル）</h2>
         <canvas id="avgChart"></canvas>
@@ -235,131 +179,128 @@
 
   <div id="toast" class="toast"></div>
 
-  <script>
-window.logout=function(){
-  if(confirm("ログアウトしますか？")){
-    sessionStorage.clear();
-    window.location.href="/logout";
-  }
-};
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module">
+    import { showToast } from "/js/toast.js";
 
-window.exportToCSV=function(tableId,filename){
-  const table=document.getElementById(tableId);
-  if(!table)return alert("出力対象が見つかりません");
-  const rows=[...table.querySelectorAll("tr")];
-  const csv=rows.map(r=>[...r.children].map(c=>`"${(c.innerText||"").replace(/\r?\n/g," ").replace(/"/g,'""')}"`).join(",")).join("\r\n");
-  const bom=new Uint8Array([0xEF,0xBB,0xBF]);
-  const blob=new Blob([bom,csv],{type:"text/csv;charset=utf-8;"});
-  const link=document.createElement("a");
-  link.href=URL.createObjectURL(blob);
-  link.download=filename+".csv";
-  link.click();
-};
+    // 🚪 ログアウト
+    window.logout = function() {
+      if (confirm("ログアウトしますか？")) {
+        sessionStorage.clear();
+        window.location.href = "/logout";
+      }
+    };
 
-window.exportToPDF=function(elementId,filename){
-  const element=document.getElementById(elementId);
-  if(!element)return alert("出力対象が見つかりません");
-  const tbody=element.querySelector("tbody");
-  if(tbody&&tbody.children.length===0){
-    tbody.innerHTML="<tr><td colspan='6' style='text-align:center;color:#555;'>出力できるデータがありません。</td></tr>";
-  }
-  const clone=element.cloneNode(true);
-  clone.style.margin="0 auto";
-  clone.style.display="table";
-  clone.style.borderCollapse="collapse";
-  clone.style.backgroundColor="#fff";
-  const wrapper=document.createElement("div");
-  wrapper.style.width="100%";
-  wrapper.style.textAlign="center";
-  wrapper.style.paddingTop="40px";
-  wrapper.style.backgroundColor="#fff";
-  wrapper.appendChild(clone);
-  document.body.appendChild(wrapper);
-  window.scrollTo(0,0);
-  const opt={
-    margin:[20,20,20,20],
-    filename:filename+".pdf",
-    image:{type:"jpeg",quality:1},
-    html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},
-    jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
-    pagebreak:{mode:["avoid-all"]}
-  };
-  setTimeout(()=>{
-    html2pdf().set(opt).from(wrapper).save().then(()=>wrapper.remove())
-    .catch(err=>{console.error("PDF出力エラー:",err);alert("PDF出力に失敗しました。");wrapper.remove();});
-  },400);
-};
+    // 🧾 PDF・CSV 出力機能
+    window.exportToPDF = function(elementId, filename) {
+      const element = document.getElementById(elementId);
+      if (!element) return alert("出力対象が見つかりません");
+      html2pdf().set({
+        margin: 10,
+        filename: filename + ".pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+      }).from(element).save();
+    };
 
-window.filterByRange=function(){
-  const from=document.getElementById("filterFrom").value;
-  const to=document.getElementById("filterTo").value;
-  document.querySelectorAll("#entryTable tbody tr").forEach(r=>{
-    const date=r.dataset.date;
-    let show=true;
-    if(from&&date<from)show=false;
-    if(to&&date>to)show=false;
-    r.style.display=show?"":"none";
-  });
-};
+    window.exportToCSV = function(tableId, filename) {
+      const table = document.getElementById(tableId);
+      if (!table) return alert("出力対象が見つかりません");
+      const rows = Array.from(table.querySelectorAll("tr"));
+      const csv = rows.map(r => Array.from(r.children).map(c => `"${c.innerText.replace(/"/g,'""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename + ".csv";
+      link.click();
+    };
 
-window.resetRange=function(){
-  document.getElementById("filterFrom").value="";
-  document.getElementById("filterTo").value="";
-  document.querySelectorAll("#entryTable tbody tr").forEach(r=>r.style.display="");
-  updateGraph();
-};
+    // 🕒 日付範囲フィルター
+    window.filterByRange = function(){
+      const from=document.getElementById("filterFrom").value;
+      const to=document.getElementById("filterTo").value;
+      document.querySelectorAll("#entryTable tbody tr").forEach(r=>{
+        const date=r.dataset.date;
+        let show=true;
+        if(from && date<from) show=false;
+        if(to && date>to) show=false;
+        r.style.display = show ? "" : "none";
+      });
+    };
 
-let chart;
-window.updateGraph=function(){
-  const from=document.getElementById("filterFrom").value;
-  const to=document.getElementById("filterTo").value;
-  const rows=[...document.querySelectorAll("#entryTable tbody tr")];
-  const filtered=rows.filter(r=>{
-    const d=r.dataset.date;
-    if(!d)return false;
-    if(from&&d<from)return false;
-    if(to&&d>to)return false;
-    return true;
-  }).map(r=>({condition:Number(r.dataset.condition)||0,mental:Number(r.dataset.mental)||0}));
-  const avgCondition=filtered.length?(filtered.reduce((s,e)=>s+e.condition,0)/filtered.length).toFixed(2):0;
-  const avgMental=filtered.length?(filtered.reduce((s,e)=>s+e.mental,0)/filtered.length).toFixed(2):0;
-  const ctx=document.getElementById("avgChart").getContext("2d");
-  if(chart)chart.destroy();
-  chart=new Chart(ctx,{
-    type:"bar",
-    data:{labels:["体調","メンタル"],datasets:[{label:"平均スコア",data:[avgCondition,avgMental],backgroundColor:["#4e79a7","#f28e2b"]}]},
-    options:{scales:{y:{beginAtZero:true,max:5,ticks:{stepSize:1}}},plugins:{legend:{display:false}}}
-  });
-};
+    window.resetRange = function(){
+      document.getElementById("filterFrom").value="";
+      document.getElementById("filterTo").value="";
+      document.querySelectorAll("#entryTable tbody tr").forEach(r=>r.style.display="");
+      updateGraph(); // グラフもリセット
+    };
 
-function goHome(){
-  const path=window.location.pathname;
-  if(path.includes("admin"))location.href="/admin";
-  else if(path.includes("teacher"))location.href="/teacher";
-  else if(path.includes("student"))location.href="/student";
-  else location.href="/";
-}
+    // 📊 グラフ更新処理
+    let chart;
+    window.updateGraph = function(){
+      const from=document.getElementById("filterFrom").value;
+      const to=document.getElementById("filterTo").value;
+      const rows=[...document.querySelectorAll("#entryTable tbody tr")];
 
-/* ✅ 日本語対応トースト通知 */
-function showToast(message,type="success"){
-  const toast=document.getElementById("toast");
-  if(!toast)return;
-  toast.textContent=message;
-  toast.style.background=type==="error"?"#c62828":"#2e7d32"; // 成功→緑, 失敗→赤
-  toast.classList.add("show");
-  setTimeout(()=>toast.classList.remove("show"),2500);
-}
+      const filtered = rows
+        .filter(r=>{
+          const d=r.dataset.date;
+          if(!d) return false;
+          if(from && d<from) return false;
+          if(to && d>to) return false;
+          return true;
+        })
+        .map(r=>({
+          condition:Number(r.dataset.condition)||0,
+          mental:Number(r.dataset.mental)||0
+        }));
 
-document.addEventListener("DOMContentLoaded",()=>{
-  updateGraph();
-  const msg=document.getElementById("alertMsg");
-  if(msg&&msg.textContent.trim()){
-    let text=msg.textContent.trim();
-    if(text.toLowerCase().includes("success")) text="✅ 提出が完了しました";
-    if(text.toLowerCase().includes("error")) text="⚠️ 提出に失敗しました";
-    showToast(text);
-  }
-});
-</script>
+      const avgCondition = filtered.length ? (filtered.reduce((s,e)=>s+e.condition,0)/filtered.length).toFixed(2) : 0;
+      const avgMental = filtered.length ? (filtered.reduce((s,e)=>s+e.mental,0)/filtered.length).toFixed(2) : 0;
+
+      const ctx=document.getElementById("avgChart").getContext("2d");
+      if(chart) chart.destroy();
+      chart=new Chart(ctx,{
+        type:"bar",
+        data:{
+          labels:["体調","メンタル"],
+          datasets:[{
+            label:"平均スコア",
+            data:[avgCondition,avgMental],
+            backgroundColor:["#4e79a7","#f28e2b"]
+          }]
+        },
+        options:{
+          scales:{y:{beginAtZero:true,max:5,ticks:{stepSize:1}}},
+          plugins:{legend:{display:false}}
+        }
+      });
+    };
+
+    // 🪄 トースト表示（送信時）
+    document.addEventListener("DOMContentLoaded",()=>{
+      updateGraph(); // 初期描画
+
+      const msgEl=document.getElementById("alertMsg");
+      if (!msgEl) return;
+      const msg=msgEl.textContent.trim();
+      if (!msg) return;
+
+      const urlParams=new URLSearchParams(window.location.search);
+      const alertType=urlParams.get("alert");
+      let type="info",text="";
+      switch(alertType){
+        case "success": text="✅ 提出が完了しました。"; type="success"; break;
+        case "resubmit": text="♻️ 修正を反映しました。"; type="info"; break;
+        case "locked": text="⚠️ 担任が確認済みのため修正できません。"; type="warn"; break;
+        case "error": text="❌ エラーが発生しました。"; type="error"; break;
+      }
+      if(text){
+        showToast(text,type,3500);
+        setTimeout(()=>{ history.replaceState(null,"",`/student?user=<%= student.id %>`); },4000);
+      }
+    });
+  </script>
 </body>
 </html>

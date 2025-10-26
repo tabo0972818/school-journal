@@ -93,7 +93,7 @@ router.post("/", async (req, res) => {
     );
 
     await logAction(db, student_id, "student", "提出", student_id, "初回提出");
-    return res.redirect(`/student?user=${student_id}&alert=提出が完了しました！`);
+    return res.redirect(`/student?user=${student_id}&alert=success`);
   } catch (err) {
     console.error("❌ student提出エラー:", err);
     res.redirect(`/student?user=${req.body.student_id}&alert=error`);

@@ -17,7 +17,7 @@ router.get("/", requireAdmin, async (req, res) => {
     const entries = await db.all(`SELECT * FROM entries ORDER BY date DESC`);
     const logs = await db.all(`SELECT * FROM logs ORDER BY time DESC LIMIT 100`);
 
-    // 🔹 統計値算出
+    // 🔹 統計値
     const totalEntries = entries.length;
     const unreadCount = entries.filter(e => !e.is_read).length;
     const readCount = entries.filter(e => e.is_read).length;
@@ -25,7 +25,6 @@ router.get("/", requireAdmin, async (req, res) => {
     const avgCondition = valid.length ? valid.reduce((s, e) => s + Number(e.condition), 0) / valid.length : 0;
     const avgMental = valid.length ? valid.reduce((s, e) => s + Number(e.mental), 0) / valid.length : 0;
 
-    // 🔹 EJSへ描画
     res.render("admin_dashboard", {
       title: "管理者ダッシュボード",
       users,
@@ -35,15 +34,11 @@ router.get("/", requireAdmin, async (req, res) => {
       unreadCount,
       readCount,
       avgCondition: avgCondition.toFixed(2),
-      avgMental: avgMental.toFixed(2)
+      avgMental: avgMental.toFixed(2),
     });
   } catch (err) {
     console.error("⚠️ 管理者ページエラー:", err);
-    res.status(500).render("error", {
-      title: "エラー",
-      message: "データ取得エラー",
-      error: err
-    });
+    res.status(500).render("error", { title: "エラー", message: "データ取得エラー", error: err });
   } finally {
     if (db) await db.close();
   }
@@ -58,7 +53,9 @@ router.post("/addUser", requireAdmin, async (req, res) => {
   try {
     db = await getDb();
 
+    // 既存チェック
     const existing = await db.get("SELECT * FROM users WHERE id = ?", [id]);
+
     if (existing) {
       await db.run(
         "UPDATE users SET name=?, role=?, password=?, grade=?, class_name=? WHERE id=?",
@@ -76,18 +73,14 @@ router.post("/addUser", requireAdmin, async (req, res) => {
     res.redirect("/admin");
   } catch (err) {
     console.error("⚠️ ユーザー追加/更新エラー:", err);
-    res.status(500).render("error", {
-      title: "エラー",
-      message: "ユーザー追加/更新失敗",
-      error: err
-    });
+    res.status(500).render("error", { title: "エラー", message: "ユーザー追加/更新失敗", error: err });
   } finally {
     if (db) await db.close();
   }
 });
 
 // =======================
-// 🗑️ ユーザー削除
+// 🗑️ 削除
 // =======================
 router.post("/deleteUser/:id", requireAdmin, async (req, res) => {
   const userId = req.params.id;
@@ -99,11 +92,7 @@ router.post("/deleteUser/:id", requireAdmin, async (req, res) => {
     res.redirect("/admin");
   } catch (err) {
     console.error("⚠️ ユーザー削除エラー:", err);
-    res.status(500).render("error", {
-      title: "エラー",
-      message: "ユーザー削除失敗",
-      error: err
-    });
+    res.status(500).render("error", { title: "エラー", message: "ユーザー削除失敗", error: err });
   } finally {
     if (db) await db.close();
   }
@@ -121,11 +110,7 @@ router.post("/reset", requireAdmin, async (req, res) => {
     res.redirect("/admin");
   } catch (err) {
     console.error("⚠️ 初期化エラー:", err);
-    res.status(500).render("error", {
-      title: "エラー",
-      message: "初期化失敗",
-      error: err
-    });
+    res.status(500).render("error", { title: "エラー", message: "初期化失敗", error: err });
   } finally {
     if (db) await db.close();
   }
@@ -143,11 +128,7 @@ router.post("/logs/clear", requireAdmin, async (req, res) => {
     res.redirect("/admin");
   } catch (err) {
     console.error("⚠️ ログ削除エラー:", err);
-    res.status(500).render("error", {
-      title: "エラー",
-      message: "ログ削除失敗",
-      error: err
-    });
+    res.status(500).render("error", { title: "エラー", message: "ログ削除失敗", error: err });
   } finally {
     if (db) await db.close();
   }

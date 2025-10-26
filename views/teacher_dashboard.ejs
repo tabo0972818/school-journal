@@ -21,7 +21,7 @@
     main {max-width:1100px;margin:auto;padding:25px;}
     h2 {border-left:5px solid #0078d4;padding-left:10px;color:#0078d4;font-weight:600;}
     .table-container{overflow-x:auto;margin-bottom:25px;}
-    table{width:90%;margin:auto;border-collapse:collapse;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.1);min-width:700px;}
+    table{width:85%;margin:auto;border-collapse:collapse;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.1);min-width:700px;}
     th,td{border:1px solid #ddd;padding:6px 8px;text-align:center;white-space:nowrap;}
     th{background:#0078d4;color:#fff;} tr:nth-child(even){background:#f9f9f9;}
     button{background:#0078d4;color:#fff;border:none;border-radius:5px;padding:6px 10px;cursor:pointer;margin-right:4px;}
@@ -32,7 +32,6 @@
   </style>
 </head>
 <body>
-  <img id="school-logo" src="/images/school_logo.png" alt="School Logo" onclick="goHome()">
 <header>
   <h1>👨‍🏫 <%= title %>（<%= teacherName %>）</h1>
   <img src="/images/logout.png" alt="logout" onclick="logout()">
@@ -41,6 +40,7 @@
 <main>
   <% const safeUnsubmitted = Array.isArray(unsubmitted) ? unsubmitted : []; %>
 
+  <!-- 📋 提出一覧 -->
   <section id="sectionEntries">
     <h2>📋 提出一覧（相談欄含む）</h2>
     <div style="margin-bottom:10px;">
@@ -89,6 +89,7 @@
     </div>
   </section>
 
+  <!-- 📅 未提出者一覧 -->
   <section id="sectionUnsubmitted">
     <h2>📅 未提出者一覧</h2>
     <div style="margin-bottom:10px;">
@@ -112,6 +113,7 @@
     <% } %>
   </section>
 
+  <!-- 📊 グラフ群 -->
   <section>
     <h2>📈 提出率・平均・推移</h2>
     <canvas id="submissionChart"></canvas>
@@ -123,11 +125,12 @@
 <script>
 (function(){
   function jstToday(){
-    const d=new Date(Date.now()+9*60*60*1000);
+    const d = new Date(Date.now()+9*60*60*1000);
     return d.toISOString().slice(0,10);
   }
 
-  window.exportToPDF=async function(elementId,filename,titleText){
+  /* ================= 📄 PDF出力 ================= */
+  window.exportToPDF = async function(elementId, filename, titleText){
     try{
       const table=document.getElementById(elementId);
       if(!table)return alert("出力対象が見つかりません");
@@ -143,7 +146,7 @@
       const today=jstToday();
       const wrap=document.createElement("div");
       Object.assign(wrap.style,{
-        width:"190mm",margin:"0 auto",background:"#fff",textAlign:"center",
+        width:"210mm",margin:"0 auto",background:"#fff",textAlign:"center",
         padding:"10mm 0",fontFamily:"'Noto Sans JP',sans-serif"
       });
 
@@ -154,18 +157,16 @@
       wrap.appendChild(title);
 
       const clone=table.cloneNode(true);
-      Object.assign(clone.style,{
-        width:"95%",margin:"0 auto",borderCollapse:"collapse",tableLayout:"fixed"
-      });
+      Object.assign(clone.style,{width:"90%",margin:"auto",borderCollapse:"collapse"});
       clone.querySelectorAll("th,td").forEach(td=>{
         td.style.border="1px solid #999";
         td.style.fontSize="11px";
         td.style.padding="6px 8px";
         td.style.textAlign="center";
-        td.style.wordBreak="break-word";
+        td.style.wordBreak="break-all";
       });
       const ths=clone.querySelectorAll("th");
-      if(ths.length===2){ths[0].style.width="45%";ths[1].style.width="45%";}
+      if(ths.length===2){ths[0].style.width="40%";ths[1].style.width="50%";}
       wrap.appendChild(clone);
       document.body.appendChild(wrap);
 
@@ -173,13 +174,7 @@
         margin:[5,5,5,5],
         filename:`${filename}_${today}.pdf`,
         image:{type:"jpeg",quality:1},
-        html2canvas:{
-          scale:2,
-          useCORS:true,
-          backgroundColor:"#fff",
-          scrollX:0,
-          scrollY:0
-        },
+        html2canvas:{scale:2,useCORS:true,backgroundColor:"#fff"},
         jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}
       }).from(wrap).save();
 
@@ -191,6 +186,7 @@
     }
   };
 
+  /* ================= 📊 CSV出力 ================= */
   window.exportToCSV=function(tableId,filename){
     const table=document.getElementById(tableId);
     if(!table)return alert("出力対象が見つかりません");
@@ -208,8 +204,9 @@
     link.click();
   };
 
-  document.addEventListener("click",async e=>{
-    if(!e.target.classList.contains("btn-readlike"))return;
+  /* ================= ✅ 既読＋🔥 ================= */
+  document.addEventListener("click", async e=>{
+    if(!e.target.classList.contains("btn-readlike")) return;
     const id=e.target.dataset.entry;
     const comment=document.getElementById("comment-"+id)?.value.trim()||"";
     try{
@@ -240,24 +237,30 @@
     setTimeout(()=>t.classList.remove("show"),2000);
   }
 
+  /* ================= グラフ描画 ================= */
   document.addEventListener("DOMContentLoaded",()=>{
     const submissionCanvas=document.getElementById("submissionChart");
     if(!submissionCanvas)return;
-    const trendLabels=<%- JSON.stringify(trendLabels || []) %>;
-    const trendCondition=<%- JSON.stringify(trendCondition || []) %>;
-    const trendMental=<%- JSON.stringify(trendMental || []) %>;
-    const rateLabels=<%- JSON.stringify(rateLabels || []) %>;
-    const rateValues=<%- JSON.stringify(rateValues || []) %>;
-    const submissionRate=<%- Number(submissionRate || 0) %>;
-    const avgCondition=<%- Number(avgCondition || 0) %>;
-    const avgMental=<%- Number(avgMental || 0) %>;
 
-    const ctx1=submissionCanvas.getContext("2d");
+    const trendLabels = <%- JSON.stringify(trendLabels || []) %>;
+    const trendCondition = <%- JSON.stringify(trendCondition || []) %>;
+    const trendMental = <%- JSON.stringify(trendMental || []) %>;
+    const rateLabels = <%- JSON.stringify(rateLabels || []) %>;
+    const rateValues = <%- JSON.stringify(rateValues || []) %>;
+    const submissionRate = <%- Number(submissionRate || 0) %>;
+    const avgCondition = <%- Number(avgCondition || 0) %>;
+    const avgMental = <%- Number(avgMental || 0) %>;
+
+    // 提出率円グラフ
+    const ctx1 = submissionCanvas.getContext("2d");
     new Chart(ctx1,{
       type:"doughnut",
       data:{
         labels:["提出済","未提出"],
-        datasets:[{data:[submissionRate,100-submissionRate],backgroundColor:["#0078d4","#ccc"]}]
+        datasets:[{
+          data:[submissionRate,100-submissionRate],
+          backgroundColor:["#0078d4","#ccc"]
+        }]
       },
       options:{
         plugins:{
@@ -267,13 +270,17 @@
       }
     });
 
+    // 平均棒グラフ
     const avgCanvas=document.createElement("canvas");
     submissionCanvas.parentElement.appendChild(avgCanvas);
     new Chart(avgCanvas.getContext("2d"),{
       type:"bar",
       data:{
         labels:["体調","メンタル"],
-        datasets:[{data:[avgCondition,avgMental],backgroundColor:["#4caf50","#ff9800"]}]
+        datasets:[{
+          data:[avgCondition,avgMental],
+          backgroundColor:["#4caf50","#ff9800"]
+        }]
       },
       options:{
         plugins:{title:{display:true,text:"平均値（体調・メンタル）",font:{size:16}}},
@@ -281,6 +288,7 @@
       }
     });
 
+    // 推移折れ線
     const trendCanvas=document.createElement("canvas");
     submissionCanvas.parentElement.appendChild(trendCanvas);
     new Chart(trendCanvas.getContext("2d"),{
@@ -298,13 +306,16 @@
       }
     });
 
+    // 提出率推移
     const rateCanvas=document.createElement("canvas");
     submissionCanvas.parentElement.appendChild(rateCanvas);
     new Chart(rateCanvas.getContext("2d"),{
       type:"line",
       data:{
         labels:rateLabels,
-        datasets:[{label:"提出率(%)",data:rateValues,borderColor:"#4caf50",fill:false}]
+        datasets:[{
+          label:"提出率(%)",data:rateValues,borderColor:"#4caf50",fill:false
+        }]
       },
       options:{
         plugins:{title:{display:true,text:"日別提出率の推移",font:{size:16}}},
@@ -313,6 +324,7 @@
     });
   });
 
+  /* ================= その他 ================= */
   window.logout=function(){if(confirm("ログアウトしますか？"))location.href="/logout";}
   window.filterByRange=function(){
     const f=document.querySelector("#filterFrom").value;
@@ -329,15 +341,5 @@
   };
 })();
 </script>
-<script>
-function goHome() {
-  const path = window.location.pathname;
-  if (path.includes("admin")) location.href = "/admin";
-  else if (path.includes("teacher")) location.href = "/teacher";
-  else if (path.includes("student")) location.href = "/student";
-  else location.href = "/";
-}
-</script>
-
 </body>
 </html>

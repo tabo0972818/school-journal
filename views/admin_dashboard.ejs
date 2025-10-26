@@ -38,14 +38,12 @@
     .section{margin-top:32px;}
     .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #ddd;font-size:.8rem;background:#fff;}
     .text-right{text-align:right;}
-    #logTableArea,#userTableArea{overflow:visible!important;background:#fff;}
     @media (max-width:900px){
       .grid.cols-4{grid-template-columns:repeat(2,1fr);}
     }
   </style>
 </head>
 <body>
-  <img id="school-logo" src="/images/school_logo.png" alt="School Logo" onclick="goHome()">
 <header>
   <h1>👨‍💼 管理者ダッシュボード</h1>
   <img src="/images/logout.png" alt="logout" onclick="logout()">
@@ -68,7 +66,7 @@
     </div>
   </section>
 
-  <!-- ➕ アカウント追加・更新 -->
+  <!-- ➕ ユーザー追加 / 更新 -->
   <section class="section">
     <div class="space-between">
       <h2>➕ アカウント追加・更新</h2>
@@ -76,8 +74,8 @@
     </div>
     <form action="/admin/addUser" method="post" class="card">
       <div class="row">
-        <div><label for="id">ID</label><input id="id" name="id" type="text" required placeholder="例: student1A01 / teacher2B"></div>
-        <div><label for="name">名前</label><input id="name" name="name" type="text" required placeholder="例: 山田太郎"></div>
+        <div><label for="id">ID</label><input id="id" name="id" type="text" placeholder="例: student1A01 / teacher2B" required></div>
+        <div><label for="name">名前</label><input id="name" name="name" type="text" placeholder="例: 山田太郎" required></div>
         <div><label for="role">役割</label>
           <select id="role" name="role" required>
             <option value="student">student（生徒）</option>
@@ -85,7 +83,7 @@
             <option value="admin">admin（管理者）</option>
           </select>
         </div>
-        <div><label for="password">パスワード</label><input id="password" name="password" type="text" required placeholder="初期/更新パスワード"></div>
+        <div><label for="password">パスワード</label><input id="password" name="password" type="text" placeholder="初期/更新パスワード" required></div>
       </div>
       <div class="row">
         <div><label for="grade">学年</label>
@@ -103,7 +101,7 @@
     </form>
   </section>
 
-  <!-- 🔍 ユーザー一覧 -->
+  <!-- 🔍 フィルター -->
   <section class="section">
     <div class="space-between">
       <h2>🔍 ユーザー一覧（フィルター付き）</h2>
@@ -125,21 +123,23 @@
 
     <div id="userTableArea" class="section">
       <table id="userTable">
-        <thead><tr><th>ID</th><th>名前</th><th>学年</th><th>クラス</th><th>役割</th><th>操作</th></tr></thead>
+        <thead>
+          <tr><th>ID</th><th>名前</th><th>学年</th><th>クラス</th><th>役割</th><th>操作</th></tr>
+        </thead>
         <tbody id="userTbody">
           <% users.forEach(u=>{ %>
-          <tr data-grade="<%= u.grade %>" data-class="<%= u.class_name %>" data-role="<%= u.role %>" data-id="<%= u.id %>" data-name="<%= u.name %>">
-            <td><span class="badge"><%= u.id %></span></td>
-            <td><%= u.name %></td>
-            <td><%= u.grade %></td>
-            <td><%= u.class_name %></td>
-            <td><%= u.role %></td>
-            <td class="actions">
-              <form action="/admin/deleteUser/<%= u.id %>" method="post" onsubmit="return confirm('ID: <%= u.id %> を削除します。よろしいですか？')">
-                <button class="danger">🗑️ 削除</button>
-              </form>
-            </td>
-          </tr>
+            <tr data-grade="<%= u.grade %>" data-class="<%= u.class_name %>" data-role="<%= u.role %>" data-id="<%= u.id %>" data-name="<%= u.name %>">
+              <td><span class="badge"><%= u.id %></span></td>
+              <td><%= u.name %></td>
+              <td><%= u.grade %></td>
+              <td><%= u.class_name %></td>
+              <td><%= u.role %></td>
+              <td class="actions">
+                <form action="/admin/deleteUser/<%= u.id %>" method="post" onsubmit="return confirm('ID: <%= u.id %> を削除します。よろしいですか？')">
+                  <button class="danger">🗑️ 削除</button>
+                </form>
+              </td>
+            </tr>
           <% }) %>
         </tbody>
       </table>
@@ -174,12 +174,9 @@
         <thead><tr><th>ID</th><th>ユーザー</th><th>操作</th><th>日時</th></tr></thead>
         <tbody id="logTbody">
           <% logs.forEach(l => { %>
-          <tr data-user="<%= l.user_name || '' %>" data-action="<%= l.action || '' %>" data-time="<%= l.time || '' %>">
-            <td><%= l.id %></td>
-            <td><%= l.user_name %></td>
-            <td><%= l.action %></td>
-            <td><%= l.time %></td>
-          </tr>
+            <tr data-user="<%= l.user_name || '' %>" data-action="<%= l.action || '' %>" data-time="<%= l.time || '' %>">
+              <td><%= l.id %></td><td><%= l.user_name %></td><td><%= l.action %></td><td><%= l.time %></td>
+            </tr>
           <% }) %>
         </tbody>
       </table>
@@ -189,14 +186,56 @@
 
 <script src="../js/dashboard_admin.js"></script>
 <script>
-function goHome() {
-  const path = window.location.pathname;
-  if (path.includes("admin")) location.href = "/admin";
-  else if (path.includes("teacher")) location.href = "/teacher";
-  else if (path.includes("student")) location.href = "/student";
-  else location.href = "/";
-}
-</script>
+  // ===== CSV出力（Excel互換 / 操作列除外） =====
+  function exportToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return alert("対象が見つかりません");
+    const rows = [...table.querySelectorAll("tr")];
+    const csv = rows.map(r => {
+      const cells = [...r.children].slice(0, -1); // 操作列除外
+      return cells.map(c => {
+        let t = c.innerText || "";
+        t = t.replace(/\r?\n/g, " ").replace(/"/g, '""');
+        return `"${t}"`;
+      }).join(",");
+    }).join("\r\n");
+    const bom = new Uint8Array([0xEF,0xBB,0xBF]);
+    const blob = new Blob([bom, csv], { type:"text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename + ".csv";
+    link.click();
+  }
 
+  // ===== PDF出力（削除ボタン列を非表示） =====
+  // ===== PDF出力（操作列を非表示） =====
+function exportToPDF(elementId, filename) {
+  const element = document.getElementById(elementId);
+  if (!element) return alert("対象が見つかりません");
+
+  // 最後の「操作」列を非表示
+  const actionCols = element.querySelectorAll("th:last-child, td:last-child");
+  actionCols.forEach(el => (el.style.display = "none"));
+
+  const opt = {
+    margin: [10, 10, 10, 10],
+    filename: filename + ".pdf",
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+  };
+
+  html2pdf().set(opt).from(element).save().then(() => {
+    // 元に戻す
+    actionCols.forEach(el => (el.style.display = ""));
+  }).catch(() => {
+    actionCols.forEach(el => (el.style.display = ""));
+  });
+}
+
+  // ===== ログアウト =====
+  function logout(){ if(confirm("ログアウトしますか？")) location.href="/logout"; }
+</script>
 </body>
 </html>
