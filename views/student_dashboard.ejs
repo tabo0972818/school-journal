@@ -35,9 +35,9 @@
     button:disabled { background:#999;cursor:not-allowed; }
     table {
       width:100%;border-collapse:collapse;background:white;
-      box-shadow:0 2px 6px rgba(0,0,0,0.1);
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);table-layout:auto;
     }
-    th,td { border:1px solid #ddd;padding:8px;text-align:center;white-space:nowrap; }
+    th,td { border:1px solid #ddd;padding:8px;text-align:center;white-space:normal;word-break:break-word; }
     th { background:#0078d4;color:white; }
     tr:nth-child(even){background:#f9f9f9;}
     .status-read { color:green;font-weight:bold; }
@@ -76,9 +76,15 @@
     <section>
       <h2>📝 提出フォーム（前登校日のみ）</h2>
 
-      <% 
-        const todayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-        const todayEntry = entries.find(e => e.date === todayStr);
+      <%
+        // 👉 前登校日（JST）を計算（日=0, 土=6 をスキップ）
+        const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+        const prev = new Date(jstNow);
+        do { prev.setDate(prev.getDate() - 1); } while (prev.getDay() === 0 || prev.getDay() === 6);
+        const prevSchoolStr = prev.toISOString().slice(0, 10);
+
+        // 前登校日のレコード（存在時は編集ロック判定に使用）
+        const todayEntry = entries.find(e => e.date === prevSchoolStr);
         const isLocked = (todayEntry && todayEntry.is_read === 1);
       %>
 
@@ -142,32 +148,34 @@
         <button onclick="exportToCSV('entryTable','student_entries')">📄 CSV出力</button>
       </div>
 
-      <table id="entryTable">
-        <thead>
-          <tr>
-            <th>日付</th><th>体調</th><th>メンタル</th>
-            <th>振り返り</th><th>状態</th><th>担任コメント</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% if (entries && entries.length) { %>
-            <% entries.forEach(e => { %>
-              <tr data-date="<%= e.date %>" data-condition="<%= e.condition %>" data-mental="<%= e.mental %>">
-                <td><%= e.date %></td>
-                <td><%= e.condition ? e.condition : "-" %></td>
-                <td><%= e.mental ? e.mental : "-" %></td>
-                <td style="text-align:left;"><%= e.reflection || "" %></td>
-                <td class="<%= e.is_read ? 'status-read' : 'status-unread' %>">
-                  <%= e.is_read ? "✅ 既読" : "⏰ 未読" %>
-                </td>
-                <td style="text-align:left;"><%= e.teacher_comment || "-" %></td>
-              </tr>
-            <% }) %>
-          <% } else { %>
-            <tr><td colspan="6">まだ提出がありません。</td></tr>
-          <% } %>
-        </tbody>
-      </table>
+      <div id="pdf-area">
+        <table id="entryTable">
+          <thead>
+            <tr>
+              <th>日付</th><th>体調</th><th>メンタル</th>
+              <th>振り返り</th><th>状態</th><th>担任コメント</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (entries && entries.length) { %>
+              <% entries.forEach(e => { %>
+                <tr data-date="<%= e.date %>" data-condition="<%= e.condition %>" data-mental="<%= e.mental %>">
+                  <td><%= e.date %></td>
+                  <td><%= e.condition ? e.condition : "-" %></td>
+                  <td><%= e.mental ? e.mental : "-" %></td>
+                  <td style="text-align:left;"><%= e.reflection || "" %></td>
+                  <td class="<%= e.is_read ? 'status-read' : 'status-unread' %>">
+                    <%= e.is_read ? "✅ 既読" : "⏰ 未読" %>
+                  </td>
+                  <td style="text-align:left;"><%= e.teacher_comment || "-" %></td>
+                </tr>
+              <% }) %>
+            <% } else { %>
+              <tr><td colspan="6">まだ提出がありません。</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
 
       <!-- 📊 体調・メンタル平均グラフ -->
       <div style="margin-top:25px;">
@@ -179,6 +187,7 @@
 
   <div id="toast" class="toast"></div>
 
+  <!-- （元コードに合わせて）Chart.jsを下部にも読込 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script type="module">
     import { showToast } from "/js/toast.js";
@@ -191,28 +200,88 @@
       }
     };
 
-    // 🧾 PDF・CSV 出力機能
-    window.exportToPDF = function(elementId, filename) {
-      const element = document.getElementById(elementId);
-      if (!element) return alert("出力対象が見つかりません");
-      html2pdf().set({
-        margin: 10,
-        filename: filename + ".pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-      }).from(element).save();
+    /* ============ PDF出力（真っ白対策＋中央補正） ============ */
+    window.exportToPDF = async function(elementId, filename) {
+      try{
+        const element = document.getElementById(elementId);
+        if (!element) return alert("出力対象が見つかりません");
+
+        const today = new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+
+        // A4に合わせたラッパー＋中央補正
+        const wrap = document.createElement("div");
+        Object.assign(wrap.style,{
+          width:"190mm",
+          margin:"0 auto",
+          background:"#fff",
+          textAlign:"center",
+          padding:"8mm 0",
+          transform:"translateX(-2mm)" // 右寄り微補正
+        });
+
+        // タイトル
+        const title=document.createElement("h3");
+        title.textContent=`提出履歴（${today}）`;
+        title.style.color="#0078d4";
+        title.style.marginBottom="5mm";
+        wrap.appendChild(title);
+
+        // テーブルをクローンしてPDF用に整形
+        const clone = element.cloneNode(true);
+        const table = clone.tagName === "TABLE" ? clone : clone.querySelector("table");
+        if (!table) return alert("テーブルが見つかりません");
+
+        Object.assign(table.style,{
+          width:"95%",
+          margin:"auto",
+          borderCollapse:"collapse",
+          tableLayout:"auto"
+        });
+        table.querySelectorAll("th,td").forEach(td=>{
+          td.style.border="1px solid #999";
+          td.style.fontSize="11px";
+          td.style.padding="5px 6px";
+          td.style.whiteSpace="normal";
+          td.style.wordBreak="break-word";
+          td.style.textAlign="center";
+        });
+
+        wrap.appendChild(table);
+        document.body.appendChild(wrap);
+
+        await html2pdf().set({
+          margin:[10,10,10,10],
+          filename:`${filename}_${today}.pdf`,
+          image:{type:"jpeg",quality:1},
+          html2canvas:{scale:2,useCORS:true,backgroundColor:"#fff",scrollY:0},
+          jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}
+        }).from(wrap).save();
+
+        wrap.remove();
+      }catch(e){
+        console.error(e);
+        alert("PDF出力中にエラーが発生しました");
+      }
     };
 
+    /* ============ CSV出力（UTF-8+BOMでExcel文字化け防止） ============ */
     window.exportToCSV = function(tableId, filename) {
       const table = document.getElementById(tableId);
       if (!table) return alert("出力対象が見つかりません");
+      const today = new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+
       const rows = Array.from(table.querySelectorAll("tr"));
-      const csv = rows.map(r => Array.from(r.children).map(c => `"${c.innerText.replace(/"/g,'""')}"`).join(",")).join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const csv = rows.map(r =>
+        Array.from(r.querySelectorAll("th,td"))
+             .map(c => `"${(c.innerText || "").replace(/"/g,'""')}"`)
+             .join(",")
+      ).join("\n");
+
+      // UTF-8 with BOM
+      const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], { type: "text/csv;charset=utf-8" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = filename + ".csv";
+      link.download = `${filename}_${today}.csv`;
       link.click();
     };
 

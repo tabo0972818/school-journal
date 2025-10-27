@@ -6,31 +6,109 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="/css/style.css">
+
   <style>
     body {
-      font-family: "Segoe UI","Noto Sans JP",sans-serif;
-      background:#f5f7fa;
-      margin:0;padding:0;
+      font-family: "Segoe UI", "Noto Sans JP", sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
     }
+
     header {
-      display:flex;justify-content:space-between;align-items:center;
-      background:#0078d4;color:white;padding:15px 20px;font-size:1.2em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0078d4;
+      color: white;
+      padding: 15px 20px;
+      font-size: 1.2em;
     }
-    header img {width:36px;height:36px;cursor:pointer;border-radius:6px;transition:.3s;}
-    header img:hover {background:rgba(255,255,255,0.3);}
-    main {max-width:1100px;margin:auto;padding:25px;}
-    h2 {border-left:5px solid #0078d4;padding-left:10px;color:#0078d4;font-weight:600;}
-    .table-container{overflow-x:auto;margin-bottom:25px;}
-    table{width:85%;margin:auto;border-collapse:collapse;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.1);min-width:700px;}
-    th,td{border:1px solid #ddd;padding:6px 8px;text-align:center;white-space:nowrap;}
-    th{background:#0078d4;color:#fff;} tr:nth-child(even){background:#f9f9f9;}
-    button{background:#0078d4;color:#fff;border:none;border-radius:5px;padding:6px 10px;cursor:pointer;margin-right:4px;}
-    button:hover{background:#005fa3;}
-    input[type="text"],input[type="date"]{border:1px solid #ccc;border-radius:5px;padding:4px;width:160px;margin-right:4px;}
-    .toast{position:fixed;right:16px;bottom:16px;background:#333;color:#fff;padding:10px 14px;border-radius:8px;opacity:0;transform:translateY(10px);transition:.25s;}
-    .toast.show{opacity:1;transform:translateY(0);}
+
+    header img {
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: 0.3s;
+    }
+    header img:hover { background: rgba(255,255,255,0.3); }
+
+    main {
+      max-width: 1100px;
+      margin: auto;
+      padding: 25px;
+    }
+
+    h2 {
+      border-left: 5px solid #0078d4;
+      padding-left: 10px;
+      color: #0078d4;
+      font-weight: 600;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      margin-bottom: 25px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,.1);
+      table-layout: auto;
+      word-wrap: break-word;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 6px 8px;
+      text-align: center;
+      white-space: normal;
+      vertical-align: middle;
+    }
+
+    th { background: #0078d4; color: #fff; }
+    tr:nth-child(even) { background: #f9f9f9; }
+
+    button {
+      background: #0078d4;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 6px 10px;
+      cursor: pointer;
+      margin-right: 4px;
+      transition: 0.3s;
+    }
+    button:hover { background: #005fa3; }
+
+    input[type="text"], input[type="date"] {
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 4px;
+      width: 160px;
+      margin-right: 4px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      background: #333;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: .25s;
+      z-index: 1000;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
   </style>
 </head>
+
 <body>
 <header>
   <h1>👨‍🏫 <%= title %>（<%= teacherName %>）</h1>
@@ -72,7 +150,7 @@
                 <td style="text-align:left;"><%= e.reflection || "" %></td>
                 <td style="text-align:left;color:#444;"><%= (e.consultation||"").trim() || "-" %></td>
                 <td class="cell-read-<%= e.id %>"><%= e.is_read ? "✅" : "🔴" %></td>
-                <td class="cell-comment-<%= e.id %>" style="text-align:left;color:#0078d4;"><%= e.teacher_comment || "-" %></td>
+                <td class="cell-comment-<%= e.id %>" style="color:#0078d4;"><%= e.teacher_comment || "-" %></td>
                 <td class="cell-action-<%= e.id %>">
                   <% if(e.is_read){ %><span>🔥 済</span><% } else { %>
                     <input type="text" id="comment-<%= e.id %>" placeholder="コメント">
@@ -124,69 +202,83 @@
 
 <script>
 (function(){
-  function jstToday(){
-    const d = new Date(Date.now()+9*60*60*1000);
-    return d.toISOString().slice(0,10);
-  }
+  const jstToday = ()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
 
-  /* ================= 📄 PDF出力 ================= */
-  window.exportToPDF = async function(elementId, filename, titleText){
-    try{
-      const table=document.getElementById(elementId);
-      if(!table)return alert("出力対象が見つかりません");
+  /* ================= 📄 PDF出力（左右中央完全調整版） ================= */
+window.exportToPDF = async function(elementId, filename, titleText){
+  try{
+    const table = document.getElementById(elementId);
+    if(!table) return alert("出力対象が見つかりません");
 
-      const headers=table.querySelectorAll("thead th");
-      const isUserTable=headers.length>2;
-      let hiddenCells=[];
-      if(isUserTable){
-        hiddenCells=[...table.querySelectorAll("th:last-child, td:last-child")];
-        hiddenCells.forEach(td=>td.style.display="none");
-      }
-
-      const today=jstToday();
-      const wrap=document.createElement("div");
-      Object.assign(wrap.style,{
-        width:"210mm",margin:"0 auto",background:"#fff",textAlign:"center",
-        padding:"10mm 0",fontFamily:"'Noto Sans JP',sans-serif"
-      });
-
-      const title=document.createElement("h3");
-      title.textContent=`${titleText.replace(/\（.*?\）/, "")}（${today}）`;
-      title.style.color="#0078d4";
-      title.style.marginBottom="5mm";
-      wrap.appendChild(title);
-
-      const clone=table.cloneNode(true);
-      Object.assign(clone.style,{width:"90%",margin:"auto",borderCollapse:"collapse"});
-      clone.querySelectorAll("th,td").forEach(td=>{
-        td.style.border="1px solid #999";
-        td.style.fontSize="11px";
-        td.style.padding="6px 8px";
-        td.style.textAlign="center";
-        td.style.wordBreak="break-all";
-      });
-      const ths=clone.querySelectorAll("th");
-      if(ths.length===2){ths[0].style.width="40%";ths[1].style.width="50%";}
-      wrap.appendChild(clone);
-      document.body.appendChild(wrap);
-
-      await html2pdf().set({
-        margin:[5,5,5,5],
-        filename:`${filename}_${today}.pdf`,
-        image:{type:"jpeg",quality:1},
-        html2canvas:{scale:2,useCORS:true,backgroundColor:"#fff"},
-        jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}
-      }).from(wrap).save();
-
-      wrap.remove();
-      hiddenCells.forEach(td=>td.style.display="");
-    }catch(e){
-      console.error(e);
-      alert("PDF出力中にエラーが発生しました");
+    // 「操作」列はPDFに不要
+    const headers = table.querySelectorAll("thead th");
+    const isUserTable = headers.length > 2;
+    let hiddenCells = [];
+    if(isUserTable){
+      hiddenCells = [...table.querySelectorAll("th:last-child, td:last-child")];
+      hiddenCells.forEach(td => td.style.display = "none");
     }
-  };
 
-  /* ================= 📊 CSV出力 ================= */
+    const today = new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10);
+
+    // 📦 PDF用ラッパー（左右中央バランス補正）
+    const wrap = document.createElement("div");
+    Object.assign(wrap.style, {
+      width: "190mm",                // ← 少し狭め（はみ出し防止）
+      marginLeft: "auto",
+      marginRight: "auto",
+      background: "#fff",
+      textAlign: "center",
+      padding: "8mm 0",
+      fontFamily: "'Noto Sans JP', sans-serif",
+      transform: "translateX(-2mm)"  // ← ⚙️ ここで右寄り補正（左に2mmずらす）
+    });
+
+    const title = document.createElement("h3");
+    title.textContent = `${titleText.replace(/\（.*?\）/, "")}（${today}）`;
+    title.style.color = "#0078d4";
+    title.style.marginBottom = "5mm";
+    wrap.appendChild(title);
+
+    const clone = table.cloneNode(true);
+    Object.assign(clone.style, {
+      width: "95%",
+      margin: "auto",
+      borderCollapse: "collapse",
+      tableLayout: "auto"
+    });
+
+    clone.querySelectorAll("th,td").forEach(td => {
+      td.style.border = "1px solid #999";
+      td.style.fontSize = "11px";
+      td.style.padding = "5px 6px";
+      td.style.textAlign = "center";
+      td.style.whiteSpace = "normal";
+      td.style.wordBreak = "break-word";
+    });
+
+    wrap.appendChild(clone);
+    document.body.appendChild(wrap);
+
+    // ✅ PDF生成（中央寄せ維持）
+    await html2pdf().set({
+      margin: [10, 10, 10, 10],
+      filename: `${filename}_${today}.pdf`,
+      image: { type: "jpeg", quality: 1 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+    }).from(wrap).save();
+
+    wrap.remove();
+    hiddenCells.forEach(td => td.style.display = "");
+  } catch(e){
+    console.error(e);
+    alert("PDF出力中にエラーが発生しました");
+  }
+};
+
+
+  /* ================= CSV出力 ================= */
   window.exportToCSV=function(tableId,filename){
     const table=document.getElementById(tableId);
     if(!table)return alert("出力対象が見つかりません");
@@ -205,8 +297,8 @@
   };
 
   /* ================= ✅ 既読＋🔥 ================= */
-  document.addEventListener("click", async e=>{
-    if(!e.target.classList.contains("btn-readlike")) return;
+  document.addEventListener("click",async e=>{
+    if(!e.target.classList.contains("btn-readlike"))return;
     const id=e.target.dataset.entry;
     const comment=document.getElementById("comment-"+id)?.value.trim()||"";
     try{
@@ -221,9 +313,7 @@
         document.querySelector(".cell-comment-"+id).innerText=comment||"-";
         document.querySelector(".cell-action-"+id).innerHTML="<span>🔥 済</span>";
         showToast("既読＋🔥を記録しました");
-      }else{
-        showToast("保存に失敗しました");
-      }
+      }else showToast("保存に失敗しました");
     }catch(err){
       console.error(err);
       showToast("通信エラーが発生しました");
@@ -242,32 +332,24 @@
     const submissionCanvas=document.getElementById("submissionChart");
     if(!submissionCanvas)return;
 
-    const trendLabels = <%- JSON.stringify(trendLabels || []) %>;
-    const trendCondition = <%- JSON.stringify(trendCondition || []) %>;
-    const trendMental = <%- JSON.stringify(trendMental || []) %>;
-    const rateLabels = <%- JSON.stringify(rateLabels || []) %>;
-    const rateValues = <%- JSON.stringify(rateValues || []) %>;
-    const submissionRate = <%- Number(submissionRate || 0) %>;
-    const avgCondition = <%- Number(avgCondition || 0) %>;
-    const avgMental = <%- Number(avgMental || 0) %>;
+    const trendLabels=<%- JSON.stringify(trendLabels||[]) %>;
+    const trendCondition=<%- JSON.stringify(trendCondition||[]) %>;
+    const trendMental=<%- JSON.stringify(trendMental||[]) %>;
+    const rateLabels=<%- JSON.stringify(rateLabels||[]) %>;
+    const rateValues=<%- JSON.stringify(rateValues||[]) %>;
+    const submissionRate=<%- Number(submissionRate||0) %>;
+    const avgCondition=<%- Number(avgCondition||0) %>;
+    const avgMental=<%- Number(avgMental||0) %>;
 
     // 提出率円グラフ
-    const ctx1 = submissionCanvas.getContext("2d");
+    const ctx1=submissionCanvas.getContext("2d");
     new Chart(ctx1,{
       type:"doughnut",
       data:{
         labels:["提出済","未提出"],
-        datasets:[{
-          data:[submissionRate,100-submissionRate],
-          backgroundColor:["#0078d4","#ccc"]
-        }]
+        datasets:[{data:[submissionRate,100-submissionRate],backgroundColor:["#0078d4","#ccc"]}]
       },
-      options:{
-        plugins:{
-          title:{display:true,text:"提出率（全体）",font:{size:16}},
-          legend:{position:"bottom"}
-        }
-      }
+      options:{plugins:{title:{display:true,text:"提出率（全体）",font:{size:16}},legend:{position:"bottom"}}}
     });
 
     // 平均棒グラフ
@@ -275,17 +357,8 @@
     submissionCanvas.parentElement.appendChild(avgCanvas);
     new Chart(avgCanvas.getContext("2d"),{
       type:"bar",
-      data:{
-        labels:["体調","メンタル"],
-        datasets:[{
-          data:[avgCondition,avgMental],
-          backgroundColor:["#4caf50","#ff9800"]
-        }]
-      },
-      options:{
-        plugins:{title:{display:true,text:"平均値（体調・メンタル）",font:{size:16}}},
-        scales:{y:{min:0,max:5,ticks:{stepSize:1}}}
-      }
+      data:{labels:["体調","メンタル"],datasets:[{data:[avgCondition,avgMental],backgroundColor:["#4caf50","#ff9800"]}]},
+      options:{plugins:{title:{display:true,text:"平均値（体調・メンタル）",font:{size:16}}},scales:{y:{min:0,max:5,ticks:{stepSize:1}}}}
     });
 
     // 推移折れ線
@@ -293,17 +366,11 @@
     submissionCanvas.parentElement.appendChild(trendCanvas);
     new Chart(trendCanvas.getContext("2d"),{
       type:"line",
-      data:{
-        labels:trendLabels,
-        datasets:[
-          {label:"体調平均",data:trendCondition,borderColor:"#0078d4",fill:false},
-          {label:"メンタル平均",data:trendMental,borderColor:"#ff9800",fill:false}
-        ]
-      },
-      options:{
-        plugins:{title:{display:true,text:"日別平均推移",font:{size:16}}},
-        scales:{y:{min:0,max:5,ticks:{stepSize:1}}}
-      }
+      data:{labels:trendLabels,datasets:[
+        {label:"体調平均",data:trendCondition,borderColor:"#0078d4",fill:false},
+        {label:"メンタル平均",data:trendMental,borderColor:"#ff9800",fill:false}
+      ]},
+      options:{plugins:{title:{display:true,text:"日別平均推移",font:{size:16}}},scales:{y:{min:0,max:5,ticks:{stepSize:1}}}}
     });
 
     // 提出率推移
@@ -311,22 +378,14 @@
     submissionCanvas.parentElement.appendChild(rateCanvas);
     new Chart(rateCanvas.getContext("2d"),{
       type:"line",
-      data:{
-        labels:rateLabels,
-        datasets:[{
-          label:"提出率(%)",data:rateValues,borderColor:"#4caf50",fill:false
-        }]
-      },
-      options:{
-        plugins:{title:{display:true,text:"日別提出率の推移",font:{size:16}}},
-        scales:{y:{min:0,max:100,ticks:{stepSize:10}}}
-      }
+      data:{labels:rateLabels,datasets:[{label:"提出率(%)",data:rateValues,borderColor:"#4caf50",fill:false}]},
+      options:{plugins:{title:{display:true,text:"日別提出率の推移",font:{size:16}}},scales:{y:{min:0,max:100,ticks:{stepSize:10}}}}
     });
   });
 
   /* ================= その他 ================= */
-  window.logout=function(){if(confirm("ログアウトしますか？"))location.href="/logout";}
-  window.filterByRange=function(){
+  window.logout=()=>{if(confirm("ログアウトしますか？"))location.href="/logout";};
+  window.filterByRange=()=>{
     const f=document.querySelector("#filterFrom").value;
     const t=document.querySelector("#filterTo").value;
     document.querySelectorAll("#entryTable tbody tr").forEach(r=>{
@@ -334,7 +393,7 @@
       r.style.display=(!f||d>=f)&&(!t||d<=t)?"":"none";
     });
   };
-  window.resetRange=function(){
+  window.resetRange=()=>{
     document.querySelector("#filterFrom").value="";
     document.querySelector("#filterTo").value="";
     document.querySelectorAll("#entryTable tbody tr").forEach(r=>r.style.display="");

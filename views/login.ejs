@@ -5,24 +5,64 @@
   <title><%= title || "連絡帳システム ログイン" %></title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
+    /* ===============================
+       🌈 全体設定
+    =============================== */
     body {
       font-family: "Noto Sans JP", sans-serif;
       background: linear-gradient(135deg, #e3f2fd, #bbdefb);
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
+      justify-content: flex-start; /* ← 上寄せに変更 */
+      min-height: 100vh;
       margin: 0;
+      box-sizing: border-box;
+      padding-top: 40px; /* ← ロゴ用余白 */
+      overflow-y: auto; /* ← 必要に応じてスクロール */
     }
 
+    /* ===============================
+       🎓 ロゴ部分
+    =============================== */
+    .logo-top {
+      text-align: center;
+      margin-bottom: 35px;
+      animation: fadeIn 1.5s ease;
+    }
+
+    .logo-top img {
+      width: 180px; /* ← 調整済みサイズ（はみ出さず存在感あり） */
+      height: auto;
+      border-radius: 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      transition: transform 0.4s ease;
+    }
+
+    .logo-top img:hover {
+      transform: scale(1.05);
+    }
+
+    .logo-top h1 {
+      font-size: 1.8em;
+      color: #0d47a1;
+      margin-top: 10px;
+      letter-spacing: 1.5px;
+      font-weight: 600;
+    }
+
+    /* ===============================
+       🔐 ログインフォーム
+    =============================== */
     .login-container {
-      background: #fff;
+      background: #ffffff;
       padding: 40px 50px;
       border-radius: 16px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       text-align: center;
       width: 350px;
       transition: all 0.3s ease;
+      animation: fadeUp 1.2s ease;
     }
 
     .login-container:hover {
@@ -30,16 +70,11 @@
       box-shadow: 0 6px 14px rgba(0,0,0,0.25);
     }
 
-    .school-logo {
-      width: 60px;
-      height: 60px;
-      margin-bottom: 10px;
-    }
-
-    h1 {
+    h2 {
       margin-bottom: 25px;
-      font-size: 1.8em;
+      font-size: 1.6em;
       color: #1976d2;
+      font-weight: 600;
     }
 
     input {
@@ -71,8 +106,13 @@
       transition: background-color 0.3s ease;
     }
 
-    button:hover { background-color: #0d47a1; }
+    button:hover {
+      background-color: #0d47a1;
+    }
 
+    /* ===============================
+       📘 マニュアルボタン
+    =============================== */
     .manual-btn {
       display: inline-block;
       background-color: #4CAF50;
@@ -84,8 +124,14 @@
       margin-top: 15px;
       transition: background-color 0.3s;
     }
-    .manual-btn:hover { background-color: #45a049; }
 
+    .manual-btn:hover {
+      background-color: #45a049;
+    }
+
+    /* ===============================
+       ⚠️ エラー表示
+    =============================== */
     .error {
       color: #d32f2f;
       font-weight: bold;
@@ -96,17 +142,66 @@
       padding: 8px;
     }
 
+    /* ===============================
+       🕊 フッター
+    =============================== */
     .footer {
-      margin-top: 20px;
+      margin-top: 25px;
       font-size: 0.9em;
-      color: #777;
+      color: #555;
+      text-align: center;
+      animation: fadeIn 2s ease;
+    }
+
+    /* ===============================
+       ✨ アニメーション
+    =============================== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===============================
+       📱 レスポンシブ対応
+    =============================== */
+    @media (max-width: 480px), (max-height: 700px) {
+      body {
+        padding-top: 25px;
+      }
+      .logo-top img {
+        width: 150px;
+      }
+      .logo-top h1 {
+        font-size: 1.5em;
+      }
+      .login-container {
+        width: 90%;
+        padding: 30px 25px;
+      }
+      h2 {
+        font-size: 1.4em;
+      }
     }
   </style>
 </head>
 <body>
+
+  <% if (typeof student === 'undefined') { var student = { name: '', class_name: '' }; } %>
+
+  <!-- 🎓 ロゴ -->
+  <div class="logo-top">
+    <img src="/images/school_logo.png" alt="学校ロゴ">
+    <h1>○○学園 連絡帳システム</h1>
+  </div>
+
+  <!-- 🔐 ログインフォーム -->
   <div class="login-container">
-    <img src="/images/school_logo.png" alt="学校ロゴ" class="school-logo">
-    <h1>連絡帳システム ログイン</h1>
+    <h2>ログイン</h2>
 
     <% if (typeof error !== "undefined" && error) { %>
       <p class="error"><%= error %></p>
@@ -118,14 +213,16 @@
       <button type="submit">ログイン</button>
     </form>
 
-    <!-- ✅ マニュアルダウンロードボタン -->
-    <a href="/doc/manual_final.docx" class="manual-btn" download>
-      📄 使い方マニュアルをダウンロード
+    <!-- 📄 マニュアルダウンロードボタン -->
+    <a href="/doc/School_Journal_User_Guide_Final.docx" class="manual-btn" download>
+      📘 使い方マニュアルをダウンロード
     </a>
-
-    <div class="footer">
-      <p>© 2026 JPT Parallel Technologies</p>
-    </div>
   </div>
+
+  <!-- 🕊 フッター -->
+  <div class="footer">
+    <p>© 2026 JPT Parallel Technologies</p>
+  </div>
+
 </body>
 </html>
