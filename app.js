@@ -5,16 +5,19 @@ import session from "express-session";
 import admin from "firebase-admin";
 import fs from "fs";
 
-// ====== ファイルパス設定 ======
+import loginRouter from "./routes/login.js";
+import logoutRouter from "./routes/logout.js";
+import studentRouter from "./routes/student.js";
+import teacherRouter from "./routes/teacher.js";
+import adminRouter from "./routes/admin.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-
-// ✅ RenderではPORTが自動設定される
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; // ✅ Renderは10000ポートを自動割り当て
 
 // ===============================
-// Firebase 初期化（任意）
+// Firebase 初期化
 // ===============================
 const serviceAccountPath = path.join(__dirname, "serviceAccountKey.json");
 if (fs.existsSync(serviceAccountPath)) {
@@ -34,23 +37,18 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
 app.use(
   session({
     secret: "school-journal-secret-key",
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, maxAge: 1000 * 60 * 60 * 2 },
+    cookie: {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 2, // 2時間
+    },
   })
 );
-
-// ===============================
-// ルーター読み込み
-// ===============================
-import loginRouter from "./routes/login.js";
-import logoutRouter from "./routes/logout.js";
-import studentRouter from "./routes/student.js";
-import teacherRouter from "./routes/teacher.js";
-import adminRouter from "./routes/admin.js";
 
 // ===============================
 // ルーティング設定
@@ -60,18 +58,23 @@ app.use("/logout", logoutRouter);
 app.use("/student", studentRouter);
 app.use("/teacher", teacherRouter);
 app.use("/admin", adminRouter);
+
 app.get("/", (req, res) => res.redirect("/login"));
 
 // ===============================
-// 動作確認用（Render用ヘルスチェック）
+// エラーハンドリング
 // ===============================
-app.get("/health", (req, res) => {
-  res.status(200).send("✅ Render版サーバー動作中！");
+app.use((req, res) => {
+  res.status(404).render("error", { message: "ページが見つかりません" });
 });
 
 // ===============================
-// サーバー起動
+// 動作確認
 // ===============================
+app.get("/health", (req, res) => {
+  res.send("✅ サーバーは正常に動作しています！（Render公開版）");
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
