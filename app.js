@@ -5,20 +5,22 @@ import session from "express-session";
 import admin from "firebase-admin";
 import fs from "fs";
 
-// ====== ルーター読み込み ======
-import loginRouter from "./routes/login.js";
-import logoutRouter from "./routes/logout.js";
-import studentRouter from "./routes/student.js";
-import teacherRouter from "./routes/teacher.js";
-import adminRouter from "./routes/admin.js";
-
+// ===============================
+// 📁 ファイルパス設定（ESM対応）
+// ===============================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const app = express();
-const PORT = process.env.PORT || 3001;
 
 // ===============================
-// Firebase 初期化
+// 🔥 Expressアプリ初期化
+// ===============================
+const app = express();
+
+// ✅ RenderではPORTが自動設定されるのでこれでOK
+const PORT = process.env.PORT || 3000;
+
+// ===============================
+// 🔥 Firebase 初期化（任意）
 // ===============================
 const serviceAccountPath = path.join(__dirname, "serviceAccountKey.json");
 if (fs.existsSync(serviceAccountPath)) {
@@ -31,11 +33,11 @@ if (fs.existsSync(serviceAccountPath)) {
 }
 
 // ===============================
-// ミドルウェア設定
+// ⚙️ ミドルウェア設定
 // ===============================
 app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
-app.use(express.static(path.join(__dirname, "public")));
+app.set("views", path.join(__dirname, "views")); // ✅ フォルダ名は「views」
+app.use(express.static(path.join(__dirname, "public"))); // ✅ フォルダ名は「public」
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -51,14 +53,17 @@ app.use(
   })
 );
 
-// セッション確認用ログ
-app.use((req, res, next) => {
-  if (req.session?.user) console.log("👤 セッション中:", req.session.user);
-  next();
-});
+// ===============================
+// 🧩 ルーター読み込み
+// ===============================
+import loginRouter from "./routes/login.js";
+import logoutRouter from "./routes/logout.js";
+import studentRouter from "./routes/student.js";
+import teacherRouter from "./routes/teacher.js";
+import adminRouter from "./routes/admin.js";
 
 // ===============================
-// ルーティング
+// 🚏 ルーティング設定
 // ===============================
 app.use("/login", loginRouter);
 app.use("/logout", logoutRouter);
@@ -66,22 +71,15 @@ app.use("/student", studentRouter);
 app.use("/teacher", teacherRouter);
 app.use("/admin", adminRouter);
 
-// ルートアクセス時
+// ✅ トップページはログインへリダイレクト
 app.get("/", (req, res) => res.redirect("/login"));
 
-// ===============================
-// ログアウト（直接アクセスにも対応）
-// ===============================
-app.get("/logout", (req, res) => {
-  if (req.session) req.session.destroy(() => console.log("👋 セッション破棄完了"));
-  res.redirect("/login");
-});
-
-// ===============================
-// 動作確認
-// ===============================
+// ✅ 健康チェック（Render用）
 app.get("/health", (req, res) => {
-  res.send("✅ サーバーは正常に動作しています！（Render公開版）");
+  res.status(200).send("✅ Server is running properly on Render!");
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+// ✅ サーバー起動
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
