@@ -154,61 +154,54 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-// ===============================
-// 🖨️ PDF出力（iOS対応: autoTable版===============================
+// ===== PDF出力（iOS対応版） =====
 function exportToPDF(elementId, filename) {
   const element = document.getElementById(elementId);
   if (!element) return alert("対象が見つかりません");
 
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  // Safari(iOS)対策：レンダリングが完了するまで少し待機
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  const isIOS = /iphone|ipad|ipod/.test(userAgent);
 
-  // ===== iOS専用：事前ロードした jsPDF + autoTable 使用 =====
-  if (isIOS && window.jspdf) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  // 最後の「操作」列を一時的に非表示
+  const actionCols = element.querySelectorAll("th:last-child, td:last-child");
+  actionCols.forEach(el => (el.style.display = "none"));
 
-    doc.setFontSize(14);
-    doc.text(filename === "users_list" ? "生徒・教師一覧" : "操作ログ一覧", 105, 15, { align: "center" });
-
-    const rows = [...element.querySelectorAll("tr")].map(tr =>
-      [...tr.children].slice(0, -1).map(td => td.innerText.trim())
-    );
-    const head = rows.shift();
-
-    doc.autoTable({
-      head: [head],
-      body: rows,
-      startY: 25,
-      styles: { font: "helvetica", fontSize: 9, cellPadding: 2 },
-      headStyles: { fillColor: [0,120,212], textColor: 255, halign: "center" },
-      bodyStyles: { halign: "center" },
-      alternateRowStyles: { fillColor: [245,245,245] },
-    });
-
-    doc.save(filename + ".pdf");
-    return;
-  }
-
-  // ===== PCなどその他デバイス =====
-  const hide = element.querySelectorAll("th:last-child, td:last-child");
-  hide.forEach(el => (el.style.display = "none"));
-
-  setTimeout(() => {
+  const generate = () => {
     const opt = {
       margin: [10, 10, 10, 10],
       filename: filename + ".pdf",
-      image: { type: "jpeg", quality: 1.0 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#fff" },
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        scrollY: 0, // iOSでのずれ防止
+      },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
     };
-    html2pdf().set(opt).from(element).save().finally(() => {
-      hide.forEach(el => (el.style.display = ""));
-    });
-  }, 1500);
+
+    html2pdf()
+      .set(opt)
+      .from(element)
+      .save()
+      .then(() => {
+        actionCols.forEach(el => (el.style.display = ""));
+      })
+      .catch(() => {
+        actionCols.forEach(el => (el.style.display = ""));
+      });
+  };
+
+  // iOSは描画が遅いので0.8秒遅らせてから実行
+  if (isIOS) {
+    console.log("📱 iOS Safari検出: PDF生成を遅延します…");
+    setTimeout(generate, 800);
+  } else {
+    generate();
+  }
 }
-
-
 
   // ===============================
   // 🧾 ボタンイベント登録

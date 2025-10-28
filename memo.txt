@@ -10,6 +10,10 @@ start http://localhost:10000/teacher
 
 start http://localhost:10000/login
 
+git add .
+git commit -m "fix: iOS Safari PDF出力対応"
+git push origin main
+
 
 PS C:\Users\hsgwt\OneDrive\Desktop\NikkiParallelTechnology\school-journal-ver.8> git remote -v
 origin  https://takayuki.hasegawa:glpat-jmPrc_o9bPx-hVHogcNJ-G86MQp1OmgH.01.0w0th2pj7@intern.jpt.jgc.com/takayuki.hasegawa/quest_1.git (fetch)
