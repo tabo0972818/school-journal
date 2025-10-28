@@ -1,6 +1,6 @@
 // ============================================================
-// 📘 dashboard_admin.js  完全版（ver.10 final）
-// - PDF/CSV出力（iOS Safari対応）
+// 📘 dashboard_admin.js  完全版（ver.10.1 final）
+// - PDF/CSV出力（iOS Safari完全対応）
 // - ユーザー絞り込み検索
 // - ログフィルター（日付・種別・名前）
 // - Chart.jsグラフ（提出件数／平均体調・メンタル）
@@ -134,7 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const csv = rows
       .map((r) =>
         [...r.children]
-          .slice(0, -1) // 最後の「操作」列除外
+          .slice(0, -1)
           .map((c) => `"${(c.innerText || "").replace(/\r?\n/g, " ").replace(/"/g, '""')}"`)
           .join(",")
       )
@@ -160,7 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===============================
-  // 📄 PDF出力（iOS対応 + 遅延調整）
+  // 📄 PDF出力（iOS強化対応）
   // ===============================
   function exportToPDF(elementId, filename) {
     const element = document.getElementById(elementId);
@@ -174,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
         margin: [10, 10, 10, 10],
         filename: filename + ".pdf",
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", scrollY: 0 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         pagebreak: { mode: ["avoid-all", "css", "legacy"] },
       };
@@ -187,8 +187,14 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if (isIOS) {
-      console.log("📱 iOS Safari検出: PDF生成を5秒遅延します…");
-      setTimeout(generate, 5000);
+      console.log("📱 iOS Safari検出: 強制再描画 → 6秒遅延出力");
+
+      // 🔹 iOS Safari真っ白対策（強制リペイント）
+      window.scrollTo(0, 0);
+      element.style.transform = "scale(1)";
+      element.style.webkitTransform = "scale(1)";
+      void element.offsetHeight; // reflow
+      setTimeout(generate, 6000);
     } else {
       generate();
     }
