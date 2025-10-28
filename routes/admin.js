@@ -1,4 +1,7 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
+import pdf from "html-pdf-node"; // ← これを使ってPDF生成
 import { getDb, logAction } from "../utils/log.js";
 import { requireAdmin } from "./_authz.js";
 
@@ -52,8 +55,6 @@ router.post("/addUser", requireAdmin, async (req, res) => {
   let db;
   try {
     db = await getDb();
-
-    // 既存チェック
     const existing = await db.get("SELECT * FROM users WHERE id = ?", [id]);
 
     if (existing) {
@@ -131,6 +132,32 @@ router.post("/logs/clear", requireAdmin, async (req, res) => {
     res.status(500).render("error", { title: "エラー", message: "ログ削除失敗", error: err });
   } finally {
     if (db) await db.close();
+  }
+});
+
+// =======================
+// 📄 PDF生成（サーバー側）
+// =======================
+router.post("/generate-pdf", requireAdmin, async (req, res) => {
+  try {
+    const { html, filename } = req.body;
+    if (!html) {
+      return res.status(400).json({ error: "HTMLデータがありません" });
+    }
+
+    const options = { format: "A4", printBackground: true };
+    const file = { content: html };
+
+    const pdfBuffer = await pdf.generatePdf(file, options);
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${filename}.pdf"`,
+    });
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("❌ PDF生成エラー:", error);
+    res.status(500).json({ error: "PDF生成に失敗しました" });
   }
 });
 

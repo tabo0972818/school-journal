@@ -1,22 +1,9 @@
 // ============================================================
-// 📘 dashboard_admin.js  完全版（ver.11 final）
-// - iOS Safari 真っ白対策：html2canvas + jsPDF直描画方式
-// - PDF/CSV出力・絞り込み検索・Chart.js統合
+// 📘 dashboard_admin.js（最終完全版 + フィルター修復）
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ dashboard_admin.js loaded");
-
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-  // ===============================
-  // 🚪 ログアウト
-  // ===============================
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn)
-    logoutBtn.addEventListener("click", () => {
-      if (confirm("ログアウトしますか？")) location.href = "/logout";
-    });
 
   // ===============================
   // 🧾 ユーザー一覧フィルター
@@ -54,8 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
   [filterGrade, filterClass, filterRole, filterKeyword].forEach((el) => {
     if (el) el.addEventListener("input", applyUserFilters);
   });
-
-  if (usersClearBtn)
+  if (usersClearBtn) {
     usersClearBtn.addEventListener("click", () => {
       if (filterGrade) filterGrade.value = "";
       if (filterClass) filterClass.value = "";
@@ -63,208 +49,225 @@ document.addEventListener("DOMContentLoaded", () => {
       if (filterKeyword) filterKeyword.value = "";
       applyUserFilters();
     });
+  }
 
   applyUserFilters();
 
   // ===============================
-  // 🧾 ログフィルター
+  // 📄 CSV出力（UTF-8 BOM付き・iOS対応）
   // ===============================
-  const logFilterUser = document.getElementById("logFilterUser");
-  const logFilterAction = document.getElementById("logFilterAction");
-  const logFilterDateFrom = document.getElementById("logFilterDateFrom");
-  const logFilterDateTo = document.getElementById("logFilterDateTo");
-  const logsClearBtn = document.getElementById("logsClearBtn");
-  const logTbody = document.getElementById("logTbody");
-
-  function applyLogFilters() {
-    if (!logTbody) return;
-    const u = logFilterUser?.value.trim().toLowerCase() || "";
-    const a = logFilterAction?.value.trim().toLowerCase() || "";
-    const dFrom = logFilterDateFrom?.value || "";
-    const dTo = logFilterDateTo?.value || "";
-    const fromTs = dFrom ? new Date(dFrom + "T00:00:00").getTime() : null;
-    const toTs = dTo ? new Date(dTo + "T23:59:59").getTime() : null;
-
-    [...logTbody.querySelectorAll("tr")].forEach((tr) => {
-      const tu = (tr.dataset.user || "").toLowerCase();
-      const ta = (tr.dataset.action || "").toLowerCase();
-      const tt = tr.dataset.time || "";
-      const tTs = tt ? new Date(tt).getTime() : null;
-      const okU = !u || tu.includes(u);
-      const okA = !a || ta.includes(a);
-      let okD = true;
-      if (fromTs && (tTs === null || tTs < fromTs)) okD = false;
-      if (toTs && (tTs === null || tTs > toTs)) okD = false;
-      tr.style.display = okU && okA && okD ? "" : "none";
-    });
-  }
-
-  [logFilterUser, logFilterAction, logFilterDateFrom, logFilterDateTo].forEach((el) => {
-    if (el) el.addEventListener("input", applyLogFilters);
-  });
-
-  if (logsClearBtn)
-    logsClearBtn.addEventListener("click", () => {
-      logFilterUser.value = "";
-      logFilterAction.value = "";
-      logFilterDateFrom.value = "";
-      logFilterDateTo.value = "";
-      applyLogFilters();
-    });
-
-  applyLogFilters();
-
-  // ===============================
-  // 📄 CSV出力
-  // ===============================
-  function exportToCSV(tableId, filename) {
-    const table = document.getElementById(tableId);
-    if (!table) return alert("対象が見つかりません");
-    const rows = [...table.querySelectorAll("tr")];
-    const csv = rows
-      .map((r) =>
-        [...r.children]
-          .slice(0, -1)
-          .map((c) => `"${(c.innerText || "").replace(/\r?\n/g, " ").replace(/"/g, '""')}"`)
-          .join(",")
-      )
-      .join("\r\n");
-    const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
-    const blob = new Blob([bom, csv], { type: "text/csv;charset=utf-8;" });
-    if (isIOS) {
-      const reader = new FileReader();
-      reader.onload = (e) => window.open(e.target.result, "_blank");
-      reader.readAsDataURL(blob);
-    } else {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename + ".csv";
-      a.click();
-      URL.revokeObjectURL(url);
+  function exportToCSV(areaId, filename) {
+    const table = document.querySelector(`#${areaId} table`);
+    if (!table) {
+      alert("テーブルが見つかりません。");
+      return;
     }
+
+    let csvRows = [];
+    const rows = table.querySelectorAll("tr");
+
+    rows.forEach((row) => {
+      const cols = row.querySelectorAll("th, td");
+      let rowData = [];
+      cols.forEach((cell, index) => {
+        // ✅ 最後の列（削除ボタン）をスキップ
+        if (index === cols.length - 1) return;
+        let text = cell.innerText.replace(/"/g, '""');
+        rowData.push(`"${text}"`);
+      });
+      csvRows.push(rowData.join(","));
+    });
+
+    // ✅ Excel・Safari対応：BOM付きUTF-8
+    const csvContent = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${filename}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   // ===============================
-  // 📄 PDF出力（iOS完全対応）
+  // 🧾 PDF出力（削除列を非表示）
   // ===============================
-  async function exportToPDF(elementId, filename) {
-    const element = document.getElementById(elementId);
-    if (!element) return alert("対象が見つかりません");
+  async function exportToServerPDF(areaId, filename) {
+    const area = document.getElementById(areaId);
+    if (!area) {
+      alert("対象が見つかりません。");
+      return;
+    }
 
-    // 操作列を非表示
-    const actionCols = element.querySelectorAll("th:last-child, td:last-child");
-    actionCols.forEach((el) => (el.style.display = "none"));
-
-    // iOS Safari 安定描画
-    element.style.display = "block";
-    element.style.opacity = "1";
-    element.style.visibility = "visible";
-    window.scrollTo(0, 0);
+    const html = `
+      <html><head>
+        <meta charset="UTF-8">
+        <style>
+          body{font-family:"Noto Sans JP",sans-serif;padding:20px;}
+          h1{color:#0078d4;margin-bottom:10px;}
+          table{width:100%;border-collapse:collapse;margin-top:10px;}
+          th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+          th{background:#0078d4;color:#fff;}
+          tr:nth-child(even){background:#f8f8f8;}
+          /* ✅ PDF出力時に「削除」列を非表示 */
+          th:nth-last-child(1), td:nth-last-child(1) {
+            display: none;
+          }
+        </style>
+      </head><body>
+        <h1>${filename}</h1>
+        ${area.outerHTML}
+      </body></html>
+    `;
 
     try {
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        scrollY: 0,
-        windowWidth: element.scrollWidth,
+      const response = await fetch("/admin/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html, filename }),
       });
-      const imgData = canvas.toDataURL("image/jpeg", 1.0);
-      const pdf = new jsPDF("p", "mm", "a4");
 
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      if (!response.ok) throw new Error("PDF生成エラー");
 
-      let heightLeft = imgHeight;
-      let position = 0;
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
 
-      // ページ分割処理
-      while (heightLeft > 0) {
-        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-        if (heightLeft > 0) pdf.addPage();
-        position -= pageHeight;
-      }
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filename}.pdf`;
+      a.target = "_blank";
+      a.click();
 
-      pdf.save(filename + ".pdf");
+      setTimeout(() => {
+        alert('📄 PDFが生成されました。「ファイルに保存」で保存してください。');
+      }, 300);
+
+      URL.revokeObjectURL(url);
     } catch (err) {
-      alert("PDF生成中にエラーが発生しました");
-      console.error(err);
-    } finally {
-      actionCols.forEach((el) => (el.style.display = ""));
+      console.error("❌ PDF生成失敗:", err);
+      alert("PDF生成中にエラーが発生しました。");
     }
   }
 
   // ===============================
-  // 🧾 出力ボタン登録
+  // 🔘 ボタンイベント登録
   // ===============================
-  const usersPdfBtn = document.getElementById("usersPdfBtn");
   const usersCsvBtn = document.getElementById("usersCsvBtn");
-  const logsPdfBtn = document.getElementById("logsPdfBtn");
   const logsCsvBtn = document.getElementById("logsCsvBtn");
+  const usersPdfBtn = document.getElementById("usersPdfBtn");
+  const logsPdfBtn = document.getElementById("logsPdfBtn");
 
-  if (usersPdfBtn) usersPdfBtn.addEventListener("click", () => exportToPDF("userTableArea", "users_list"));
-  if (usersCsvBtn) usersCsvBtn.addEventListener("click", () => exportToCSV("userTable", "users_list"));
-  if (logsPdfBtn) logsPdfBtn.addEventListener("click", () => exportToPDF("logTableArea", "operation_logs"));
-  if (logsCsvBtn) logsCsvBtn.addEventListener("click", () => exportToCSV("logTable", "operation_logs"));
+  if (usersCsvBtn)
+    usersCsvBtn.addEventListener("click", () =>
+      exportToCSV("userTableArea", "users_list")
+    );
+
+  if (logsCsvBtn)
+    logsCsvBtn.addEventListener("click", () =>
+      exportToCSV("logTableArea", "operation_logs")
+    );
+
+  if (usersPdfBtn)
+    usersPdfBtn.addEventListener("click", () =>
+      exportToServerPDF("userTableArea", "users_list")
+    );
+
+  if (logsPdfBtn)
+    logsPdfBtn.addEventListener("click", () =>
+      exportToServerPDF("logTableArea", "operation_logs")
+    );
 
   // ===============================
-  // 📊 Chart.js グラフ生成
+  // 📊 Chart.js グラフ描画
   // ===============================
+  const submissionsChartCtx = document.getElementById("submissionsChart");
+  const avgChartCtx = document.getElementById("avgChart");
   const entries = window.__ENTRIES__ || [];
-  const byDate = {};
 
-  function toYMD(d) {
-    const date = new Date(d);
-    return isNaN(date) ? "" : date.toISOString().split("T")[0];
-  }
-
+  const dateMap = {};
   entries.forEach((e) => {
-    const d = toYMD(e.date);
-    if (!d) return;
-    if (!byDate[d]) byDate[d] = { count: 0, sumC: 0, sumM: 0, n: 0 };
-    byDate[d].count++;
-    const c = Number(e.condition);
-    const m = Number(e.mental);
-    if (!isNaN(c) && !isNaN(m)) {
-      byDate[d].sumC += c;
-      byDate[d].sumM += m;
-      byDate[d].n++;
+    const date = e.date || e.submitted_at?.split("T")[0];
+    if (!date) return;
+    if (!dateMap[date]) {
+      dateMap[date] = { count: 0, condSum: 0, mentSum: 0 };
     }
+    dateMap[date].count++;
+    dateMap[date].condSum += e.condition || 0;
+    dateMap[date].mentSum += e.mental || 0;
   });
 
-  const labels = Object.keys(byDate).sort();
-  const counts = labels.map((d) => byDate[d].count);
-  const avgC = labels.map((d) => (byDate[d].n ? +(byDate[d].sumC / byDate[d].n).toFixed(2) : 0));
-  const avgM = labels.map((d) => (byDate[d].n ? +(byDate[d].sumM / byDate[d].n).toFixed(2) : 0));
+  const labels = Object.keys(dateMap).sort();
+  const counts = labels.map((d) => dateMap[d].count);
+  const avgCond = labels.map(
+    (d) => (dateMap[d].condSum / dateMap[d].count).toFixed(2)
+  );
+  const avgMent = labels.map(
+    (d) => (dateMap[d].mentSum / dateMap[d].count).toFixed(2)
+  );
 
-  const subChart = document.getElementById("submissionsChart");
-  const avgChart = document.getElementById("avgChart");
-
-  if (subChart) {
-    new Chart(subChart, {
+  if (submissionsChartCtx) {
+    new Chart(submissionsChartCtx, {
       type: "bar",
-      data: { labels, datasets: [{ label: "提出件数", data: counts, backgroundColor: "#0078d4" }] },
-      options: { responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } },
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "提出件数",
+            data: counts,
+            borderWidth: 1,
+            backgroundColor: "#0078d4aa",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        },
+      },
     });
   }
 
-  if (avgChart) {
-    new Chart(avgChart, {
+  if (avgChartCtx) {
+    new Chart(avgChartCtx, {
       type: "line",
       data: {
         labels,
         datasets: [
-          { label: "平均 体調", data: avgC, borderColor: "#0078d4", tension: 0.3 },
-          { label: "平均 メンタル", data: avgM, borderColor: "#ff6b6b", tension: 0.3 },
+          {
+            label: "平均体調",
+            data: avgCond,
+            borderColor: "#00b050",
+            borderWidth: 2,
+            tension: 0.3,
+          },
+          {
+            label: "平均メンタル",
+            data: avgMent,
+            borderColor: "#ff6f00",
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.3,
+          },
         ],
       },
-      options: { responsive: true, scales: { y: { min: 0, max: 5 } } },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "bottom" },
+        },
+        scales: {
+          y: { beginAtZero: true, max: 5 },
+        },
+      },
     });
   }
 
-  console.log("✅ dashboard_admin ready");
+  console.log("✅ dashboard_admin.js ready");
 });

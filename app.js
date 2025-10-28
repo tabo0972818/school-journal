@@ -1,6 +1,8 @@
 // ======================================
-// 📘 School Journal System (ver.10)
-// app.js（LAN / Render 両対応 完全版）
+// 📘 School Journal System (ver.11 final)
+// app.js（LAN / Render / PDF対応 完全版）
+// - iOS Safari PDF出力対応
+// - PayloadTooLargeError 修正版（10MBまで拡張）
 // ======================================
 
 import express from "express";
@@ -11,24 +13,26 @@ import admin from "firebase-admin";
 import fs from "fs";
 import os from "os";
 
-// ルーター読み込み
+// ----------------------
+// 🔹 ルーター読み込み
+// ----------------------
 import loginRouter from "./routes/login.js";
 import logoutRouter from "./routes/logout.js";
 import studentRouter from "./routes/student.js";
 import teacherRouter from "./routes/teacher.js";
 import adminRouter from "./routes/admin.js";
 
-// --------------------------------------
+// ----------------------
 // 📁 基本設定
-// --------------------------------------
+// ----------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// --------------------------------------
+// ----------------------
 // 🔥 Firebase Admin SDK 初期化
-// --------------------------------------
+// ----------------------
 const serviceAccountPath = path.join(__dirname, "serviceAccountKey.json");
 if (fs.existsSync(serviceAccountPath)) {
   try {
@@ -43,15 +47,18 @@ if (fs.existsSync(serviceAccountPath)) {
   console.warn("⚠️ serviceAccountKey.json が見つかりません（Firebase機能スキップ）");
 }
 
-// --------------------------------------
-// ⚙️ Express 設定
-// --------------------------------------
+// ----------------------
+// ⚙️ Express 設定（10MB対応）
+// ----------------------
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
+// ✅ PDF送信（HTMLデータ）用にリミット拡張
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
+app.use(express.json({ limit: "10mb" }));
+
+// ✅ セッション設定
 app.use(
   session({
     secret: "school-journal-secret-key",
@@ -64,28 +71,28 @@ app.use(
   })
 );
 
-// --------------------------------------
+// ----------------------
 // 🚪 ルーティング設定
-// --------------------------------------
+// ----------------------
 app.use("/login", loginRouter);
 app.use("/logout", logoutRouter);
 app.use("/student", studentRouter);
 app.use("/teacher", teacherRouter);
-app.use("/admin", adminRouter);
+app.use("/admin", adminRouter); // ✅ PDF生成APIを含む完全版
 
 // デフォルト（ルートアクセス時） → ログインページへ
 app.get("/", (req, res) => res.redirect("/login"));
 
-// --------------------------------------
+// ----------------------
 // 🩺 ヘルスチェック
-// --------------------------------------
+// ----------------------
 app.get("/health", (req, res) => {
   res.send("✅ サーバーは正常に動作しています！（Render / Local 共通）");
 });
 
-// --------------------------------------
+// ----------------------
 // ❌ エラーハンドリング
-// --------------------------------------
+// ----------------------
 app.use((req, res) => {
   res.status(404).render("error", {
     title: "404 Not Found",
@@ -102,9 +109,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// --------------------------------------
+// ----------------------
 // 🚀 サーバー起動（LAN対応）
-// --------------------------------------
+// ----------------------
 
 // 🔍 LAN内IPアドレス自動取得
 function getLocalIP() {
