@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   // ===============================
-  // 🚪 ログアウト
+  // 🚪 ログアウト処理
   // ===============================
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
@@ -58,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
   [filterGrade, filterClass, filterRole, filterKeyword].forEach((el) => {
     if (el) el.addEventListener("input", applyUserFilters);
   });
+
   if (usersClearBtn) {
     usersClearBtn.addEventListener("click", () => {
       if (filterGrade) filterGrade.value = "";
@@ -67,10 +68,11 @@ document.addEventListener("DOMContentLoaded", () => {
       applyUserFilters();
     });
   }
+
   applyUserFilters();
 
   // ===============================
-  // 🧾 ログ絞り込み（null安全対応）
+  // 🧾 ログフィルター（日付・名前・種別）
   // ===============================
   const logFilterUser = document.getElementById("logFilterUser");
   const logFilterAction = document.getElementById("logFilterAction");
@@ -80,12 +82,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const logTbody = document.getElementById("logTbody");
 
   function applyLogFilters() {
-    if (!logTbody || !logFilterUser || !logFilterAction || !logFilterDateFrom || !logFilterDateTo) return;
+    if (!logTbody) return;
+    const u = logFilterUser?.value.trim().toLowerCase() || "";
+    const a = logFilterAction?.value.trim().toLowerCase() || "";
+    const dFrom = logFilterDateFrom?.value || "";
+    const dTo = logFilterDateTo?.value || "";
 
-    const u = logFilterUser.value.trim().toLowerCase();
-    const a = logFilterAction.value.trim().toLowerCase();
-    const dFrom = logFilterDateFrom.value;
-    const dTo = logFilterDateTo.value;
     const fromTs = dFrom ? new Date(dFrom + "T00:00:00").getTime() : null;
     const toTs = dTo ? new Date(dTo + "T23:59:59").getTime() : null;
 
@@ -105,23 +107,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (logFilterUser && logFilterAction && logFilterDateFrom && logFilterDateTo) {
-    [logFilterUser, logFilterAction, logFilterDateFrom, logFilterDateTo].forEach((el) => {
-      el.addEventListener("input", applyLogFilters);
+  [logFilterUser, logFilterAction, logFilterDateFrom, logFilterDateTo].forEach((el) => {
+    if (el) el.addEventListener("input", applyLogFilters);
+  });
+
+  if (logsClearBtn) {
+    logsClearBtn.addEventListener("click", () => {
+      logFilterUser.value = "";
+      logFilterAction.value = "";
+      logFilterDateFrom.value = "";
+      logFilterDateTo.value = "";
+      applyLogFilters();
     });
-
-    if (logsClearBtn) {
-      logsClearBtn.addEventListener("click", () => {
-        logFilterUser.value = "";
-        logFilterAction.value = "";
-        logFilterDateFrom.value = "";
-        logFilterDateTo.value = "";
-        applyLogFilters();
-      });
-    }
-
-    applyLogFilters();
   }
+
+  applyLogFilters();
 
   // ===============================
   // 📄 CSV出力（iOS対応）
@@ -129,21 +129,20 @@ document.addEventListener("DOMContentLoaded", () => {
   function exportToCSV(tableId, filename) {
     const table = document.getElementById(tableId);
     if (!table) return alert("対象が見つかりません");
+
     const rows = [...table.querySelectorAll("tr")];
     const csv = rows
       .map((r) =>
         [...r.children]
           .slice(0, -1) // 最後の「操作」列除外
-          .map((c) =>
-            `"${(c.innerText || "")
-              .replace(/\r?\n/g, " ")
-              .replace(/"/g, '""')}"`
-          )
+          .map((c) => `"${(c.innerText || "").replace(/\r?\n/g, " ").replace(/"/g, '""')}"`)
           .join(",")
       )
       .join("\r\n");
+
     const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
     const blob = new Blob([bom, csv], { type: "text/csv;charset=utf-8;" });
+
     if (isIOS) {
       const reader = new FileReader();
       reader.onload = (e) => window.open(e.target.result, "_blank");
@@ -161,16 +160,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===============================
-  // 📄 PDF出力（iOS対応版）
+  // 📄 PDF出力（iOS対応 + 遅延調整）
   // ===============================
   function exportToPDF(elementId, filename) {
     const element = document.getElementById(elementId);
     if (!element) return alert("対象が見つかりません");
 
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIOS = /iphone|ipad|ipod/.test(userAgent);
-
-    // 「操作」列を一時的に非表示
     const actionCols = element.querySelectorAll("th:last-child, td:last-child");
     actionCols.forEach((el) => (el.style.display = "none"));
 
@@ -179,12 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
         margin: [10, 10, 10, 10],
         filename: filename + ".pdf",
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#ffffff",
-          scrollY: 0,
-        },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         pagebreak: { mode: ["avoid-all", "css", "legacy"] },
       };
@@ -193,46 +183,29 @@ document.addEventListener("DOMContentLoaded", () => {
         .set(opt)
         .from(element)
         .save()
-        .then(() => {
-          actionCols.forEach((el) => (el.style.display = ""));
-        })
-        .catch(() => {
-          actionCols.forEach((el) => (el.style.display = ""));
-        });
+        .finally(() => actionCols.forEach((el) => (el.style.display = "")));
     };
 
     if (isIOS) {
-      console.log("📱 iOS Safari検出: PDF生成を遅延します…");
-      setTimeout(generate, 1200);
+      console.log("📱 iOS Safari検出: PDF生成を5秒遅延します…");
+      setTimeout(generate, 5000);
     } else {
       generate();
     }
   }
 
   // ===============================
-  // 🧾 ボタンイベント登録
+  // 🧾 出力ボタン登録
   // ===============================
   const usersPdfBtn = document.getElementById("usersPdfBtn");
   const usersCsvBtn = document.getElementById("usersCsvBtn");
   const logsPdfBtn = document.getElementById("logsPdfBtn");
   const logsCsvBtn = document.getElementById("logsCsvBtn");
 
-  if (usersPdfBtn)
-    usersPdfBtn.addEventListener("click", () =>
-      exportToPDF("userTableArea", "users_list")
-    );
-  if (usersCsvBtn)
-    usersCsvBtn.addEventListener("click", () =>
-      exportToCSV("userTable", "users_list")
-    );
-  if (logsPdfBtn)
-    logsPdfBtn.addEventListener("click", () =>
-      exportToPDF("logTableArea", "operation_logs")
-    );
-  if (logsCsvBtn)
-    logsCsvBtn.addEventListener("click", () =>
-      exportToCSV("logTable", "operation_logs")
-    );
+  if (usersPdfBtn) usersPdfBtn.addEventListener("click", () => exportToPDF("userTableArea", "users_list"));
+  if (usersCsvBtn) usersCsvBtn.addEventListener("click", () => exportToCSV("userTable", "users_list"));
+  if (logsPdfBtn) logsPdfBtn.addEventListener("click", () => exportToPDF("logTableArea", "operation_logs"));
+  if (logsCsvBtn) logsCsvBtn.addEventListener("click", () => exportToCSV("logTable", "operation_logs"));
 
   // ===============================
   // 📊 Chart.js グラフ生成
@@ -242,8 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function toYMD(d) {
     const date = new Date(d);
-    if (isNaN(date)) return "";
-    return date.toISOString().split("T")[0];
+    return isNaN(date) ? "" : date.toISOString().split("T")[0];
   }
 
   entries.forEach((e) => {
@@ -262,12 +234,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const labels = Object.keys(byDate).sort();
   const counts = labels.map((d) => byDate[d].count);
-  const avgC = labels.map((d) =>
-    byDate[d].n ? +(byDate[d].sumC / byDate[d].n).toFixed(2) : 0
-  );
-  const avgM = labels.map((d) =>
-    byDate[d].n ? +(byDate[d].sumM / byDate[d].n).toFixed(2) : 0
-  );
+  const avgC = labels.map((d) => (byDate[d].n ? +(byDate[d].sumC / byDate[d].n).toFixed(2) : 0));
+  const avgM = labels.map((d) => (byDate[d].n ? +(byDate[d].sumM / byDate[d].n).toFixed(2) : 0));
 
   const subChart = document.getElementById("submissionsChart");
   const avgChart = document.getElementById("avgChart");
@@ -275,17 +243,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (subChart) {
     new Chart(subChart, {
       type: "bar",
-      data: {
-        labels,
-        datasets: [
-          { label: "提出件数", data: counts, backgroundColor: "#0078d4" },
-        ],
-      },
-      options: {
-        responsive: true,
-        scales: { y: { beginAtZero: true } },
-        plugins: { legend: { display: false } },
-      },
+      data: { labels, datasets: [{ label: "提出件数", data: counts, backgroundColor: "#0078d4" }] },
+      options: { responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } },
     });
   }
 
@@ -295,24 +254,11 @@ document.addEventListener("DOMContentLoaded", () => {
       data: {
         labels,
         datasets: [
-          {
-            label: "平均 体調",
-            data: avgC,
-            borderColor: "#0078d4",
-            tension: 0.3,
-          },
-          {
-            label: "平均 メンタル",
-            data: avgM,
-            borderColor: "#ff6b6b",
-            tension: 0.3,
-          },
+          { label: "平均 体調", data: avgC, borderColor: "#0078d4", tension: 0.3 },
+          { label: "平均 メンタル", data: avgM, borderColor: "#ff6b6b", tension: 0.3 },
         ],
       },
-      options: {
-        responsive: true,
-        scales: { y: { min: 0, max: 5 } },
-      },
+      options: { responsive: true, scales: { y: { min: 0, max: 5 } } },
     });
   }
 
