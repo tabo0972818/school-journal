@@ -1,10 +1,7 @@
 // ============================================================
-// 📘 dashboard_admin.js  完全版（ver.10.2 final）
-// - PDF/CSV出力（iOS Safari完全対応）
-// - ユーザー絞り込み検索
-// - ログフィルター（日付・種別・名前）
-// - Chart.jsグラフ（提出件数／平均体調・メンタル）
-// - null安全ガード付き（エラー停止防止）
+// 📘 dashboard_admin.js  完全版（ver.11 final）
+// - iOS Safari 真っ白対策：html2canvas + jsPDF直描画方式
+// - PDF/CSV出力・絞り込み検索・Chart.js統合
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -13,14 +10,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   // ===============================
-  // 🚪 ログアウト処理
+  // 🚪 ログアウト
   // ===============================
   const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) {
+  if (logoutBtn)
     logoutBtn.addEventListener("click", () => {
       if (confirm("ログアウトしますか？")) location.href = "/logout";
     });
-  }
 
   // ===============================
   // 🧾 ユーザー一覧フィルター
@@ -59,7 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (el) el.addEventListener("input", applyUserFilters);
   });
 
-  if (usersClearBtn) {
+  if (usersClearBtn)
     usersClearBtn.addEventListener("click", () => {
       if (filterGrade) filterGrade.value = "";
       if (filterClass) filterClass.value = "";
@@ -67,12 +63,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (filterKeyword) filterKeyword.value = "";
       applyUserFilters();
     });
-  }
 
   applyUserFilters();
 
   // ===============================
-  // 🧾 ログフィルター（日付・名前・種別）
+  // 🧾 ログフィルター
   // ===============================
   const logFilterUser = document.getElementById("logFilterUser");
   const logFilterAction = document.getElementById("logFilterAction");
@@ -87,7 +82,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const a = logFilterAction?.value.trim().toLowerCase() || "";
     const dFrom = logFilterDateFrom?.value || "";
     const dTo = logFilterDateTo?.value || "";
-
     const fromTs = dFrom ? new Date(dFrom + "T00:00:00").getTime() : null;
     const toTs = dTo ? new Date(dTo + "T23:59:59").getTime() : null;
 
@@ -96,13 +90,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const ta = (tr.dataset.action || "").toLowerCase();
       const tt = tr.dataset.time || "";
       const tTs = tt ? new Date(tt).getTime() : null;
-
       const okU = !u || tu.includes(u);
       const okA = !a || ta.includes(a);
       let okD = true;
       if (fromTs && (tTs === null || tTs < fromTs)) okD = false;
       if (toTs && (tTs === null || tTs > toTs)) okD = false;
-
       tr.style.display = okU && okA && okD ? "" : "none";
     });
   }
@@ -111,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (el) el.addEventListener("input", applyLogFilters);
   });
 
-  if (logsClearBtn) {
+  if (logsClearBtn)
     logsClearBtn.addEventListener("click", () => {
       logFilterUser.value = "";
       logFilterAction.value = "";
@@ -119,17 +111,15 @@ document.addEventListener("DOMContentLoaded", () => {
       logFilterDateTo.value = "";
       applyLogFilters();
     });
-  }
 
   applyLogFilters();
 
   // ===============================
-  // 📄 CSV出力（iOS対応）
+  // 📄 CSV出力
   // ===============================
   function exportToCSV(tableId, filename) {
     const table = document.getElementById(tableId);
     if (!table) return alert("対象が見つかりません");
-
     const rows = [...table.querySelectorAll("tr")];
     const csv = rows
       .map((r) =>
@@ -139,75 +129,72 @@ document.addEventListener("DOMContentLoaded", () => {
           .join(",")
       )
       .join("\r\n");
-
     const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
     const blob = new Blob([bom, csv], { type: "text/csv;charset=utf-8;" });
-
     if (isIOS) {
       const reader = new FileReader();
       reader.onload = (e) => window.open(e.target.result, "_blank");
       reader.readAsDataURL(blob);
     } else {
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename + ".csv";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename + ".csv";
+      a.click();
       URL.revokeObjectURL(url);
     }
   }
 
   // ===============================
-  // 📄 PDF出力（iOS初期レンダリング白紙対策）
+  // 📄 PDF出力（iOS完全対応）
   // ===============================
-  function exportToPDF(elementId, filename) {
+  async function exportToPDF(elementId, filename) {
     const element = document.getElementById(elementId);
     if (!element) return alert("対象が見つかりません");
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-    // --- ✅ 初回白紙防止（Safariでdisplay:none状態を防ぐ） ---
-    element.style.display = "block";
-    element.style.opacity = "1";
-    element.style.visibility = "visible";
-
-    // 操作列を一時非表示
+    // 操作列を非表示
     const actionCols = element.querySelectorAll("th:last-child, td:last-child");
     actionCols.forEach((el) => (el.style.display = "none"));
 
-    const generate = () => {
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: filename + ".pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#ffffff",
-          scrollY: 0,
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-      };
+    // iOS Safari 安定描画
+    element.style.display = "block";
+    element.style.opacity = "1";
+    element.style.visibility = "visible";
+    window.scrollTo(0, 0);
 
-      html2pdf()
-        .set(opt)
-        .from(element)
-        .save()
-        .finally(() => actionCols.forEach((el) => (el.style.display = "")));
-    };
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        scrollY: 0,
+        windowWidth: element.scrollWidth,
+      });
+      const imgData = canvas.toDataURL("image/jpeg", 1.0);
+      const pdf = new jsPDF("p", "mm", "a4");
 
-    if (isIOS) {
-      console.log("📱 iOS Safari検出: 初期描画→強制リペイント→6秒遅延");
-      window.scrollTo(0, 0);
-      element.style.transform = "scale(1)";
-      element.style.webkitTransform = "scale(1)";
-      element.offsetHeight; // reflow
-      setTimeout(generate, 6000);
-    } else {
-      generate();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // ページ分割処理
+      while (heightLeft > 0) {
+        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        if (heightLeft > 0) pdf.addPage();
+        position -= pageHeight;
+      }
+
+      pdf.save(filename + ".pdf");
+    } catch (err) {
+      alert("PDF生成中にエラーが発生しました");
+      console.error(err);
+    } finally {
+      actionCols.forEach((el) => (el.style.display = ""));
     }
   }
 
