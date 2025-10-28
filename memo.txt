@@ -4,11 +4,11 @@ npm start
 
 sqlite3 .\db\data.db
 
-start http://localhost:3001/student
+start http://localhost:10000/student
 
-start http://localhost:3001/teacher
+start http://localhost:10000/teacher
 
-start http://localhost:3001/login
+start http://localhost:10000/login
 
 
 PS C:\Users\hsgwt\OneDrive\Desktop\NikkiParallelTechnology\school-journal-ver.8> git remote -v

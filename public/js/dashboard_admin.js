@@ -1,105 +1,319 @@
-// public/js/dashboard_admin.js
+// ============================================================
+// 📘 dashboard_admin.js  完全版
+// - PDF/CSV出力（iOS Safari対応）
+// - ユーザー絞り込み検索
+// - ログフィルター（日付・種別・名前）
+// - Chart.jsグラフ（提出件数／平均体調・メンタル）
+// ============================================================
 
-(function () {
-  // ===== ユーザー一覧 フィルター =====
-  const $grade = document.getElementById("filterGrade");
-  const $clazz = document.getElementById("filterClass");
-  const $role  = document.getElementById("filterRole");
-  const $kw    = document.getElementById("filterKeyword");
-  const $userTbody = document.getElementById("userTbody");
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("✅ dashboard_admin.js loaded");
 
-  function filterUsers(){
-    if(!$userTbody) return;
-    const g = ($grade?.value || "").trim();
-    const c = ($clazz?.value || "").trim();
-    const r = ($role?.value  || "").trim();
-    const k = ($kw?.value    || "").trim().toLowerCase();
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    [...$userTbody.querySelectorAll("tr")].forEach(tr=>{
-      const tg = (tr.dataset.grade || "");
-      const tc = (tr.dataset.class || "");
-      const trRole = (tr.dataset.role || "");
+  // ===============================
+  // 🚪 ログアウト
+  // ===============================
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      if (confirm("ログアウトしますか？")) location.href = "/logout";
+    });
+  }
+
+  // ===============================
+  // 🧾 ユーザー一覧フィルター
+  // ===============================
+  const filterGrade = document.getElementById("filterGrade");
+  const filterClass = document.getElementById("filterClass");
+  const filterRole = document.getElementById("filterRole");
+  const filterKeyword = document.getElementById("filterKeyword");
+  const usersClearBtn = document.getElementById("usersClearBtn");
+  const userTbody = document.getElementById("userTbody");
+
+  function applyUserFilters() {
+    if (!userTbody) return;
+    const g = filterGrade.value.trim();
+    const c = filterClass.value.trim();
+    const r = filterRole.value.trim();
+    const k = filterKeyword.value.trim().toLowerCase();
+
+    [...userTbody.querySelectorAll("tr")].forEach((tr) => {
+      const tg = tr.dataset.grade || "";
+      const tc = tr.dataset.class || tr.dataset.class_name || "";
+      const trl = tr.dataset.role || "";
       const tid = (tr.dataset.id || "").toLowerCase();
       const tname = (tr.dataset.name || "").toLowerCase();
 
-      let ok = true;
-      if (g && tg !== g) ok = false;
-      if (c && tc !== c) ok = false;
-      if (r && trRole !== r) ok = false;
-      if (k && !(tid.includes(k) || tname.includes(k))) ok = false;
+      const okG = !g || tg === g;
+      const okC = !c || tc === c;
+      const okR = !r || trl === r;
+      const okK = !k || tid.includes(k) || tname.includes(k);
 
-      tr.style.display = ok ? "" : "none";
+      tr.style.display = okG && okC && okR && okK ? "" : "none";
     });
   }
 
-  if ($grade) $grade.addEventListener("change", filterUsers);
-  if ($clazz) $clazz.addEventListener("change", filterUsers);
-  if ($role)  $role.addEventListener("change", filterUsers);
-  if ($kw)    $kw.addEventListener("input", filterUsers);
+  [filterGrade, filterClass, filterRole, filterKeyword].forEach((el) => {
+    if (el) el.addEventListener("input", applyUserFilters);
+  });
+  if (usersClearBtn) {
+    usersClearBtn.addEventListener("click", () => {
+      filterGrade.value = "";
+      filterClass.value = "";
+      filterRole.value = "";
+      filterKeyword.value = "";
+      applyUserFilters();
+    });
+  }
+  applyUserFilters();
 
-  window.clearUserFilters = function(){
-    if ($grade) $grade.value = "";
-    if ($clazz) $clazz.value = "";
-    if ($role)  $role.value  = "";
-    if ($kw)    $kw.value    = "";
-    filterUsers();
-  };
+  // ===============================
+  // 🧾 ログ絞り込み
+  // ===============================
+  const logFilterUser = document.getElementById("logFilterUser");
+  const logFilterAction = document.getElementById("logFilterAction");
+  const logFilterDateFrom = document.getElementById("logFilterDateFrom");
+  const logFilterDateTo = document.getElementById("logFilterDateTo");
+  const logsClearBtn = document.getElementById("logsClearBtn");
+  const logTbody = document.getElementById("logTbody");
 
-  // ===== 操作ログ フィルター =====
-  const $logUser = document.getElementById("logFilterUser");
-  const $logAction = document.getElementById("logFilterAction");
-  const $logFrom = document.getElementById("logFilterDateFrom");
-  const $logTo   = document.getElementById("logFilterDateTo");
-  const $logTbody= document.getElementById("logTbody");
+  function applyLogFilters() {
+    if (!logTbody) return;
+    const u = logFilterUser.value.trim().toLowerCase();
+    const a = logFilterAction.value.trim().toLowerCase();
+    const dFrom = logFilterDateFrom.value;
+    const dTo = logFilterDateTo.value;
+    const fromTs = dFrom ? new Date(dFrom + "T00:00:00").getTime() : null;
+    const toTs = dTo ? new Date(dTo + "T23:59:59").getTime() : null;
 
-  function toDateOnly(str){
-    if(!str) return null;
-    const d = new Date(str);
-    if (isNaN(d)) {
-      const replaced = str.replaceAll(".", "/").replaceAll("-", "/");
-      const dd = new Date(replaced);
-      return isNaN(dd) ? null : new Date(dd.getFullYear(), dd.getMonth(), dd.getDate());
+    [...logTbody.querySelectorAll("tr")].forEach((tr) => {
+      const tu = (tr.dataset.user || "").toLowerCase();
+      const ta = (tr.dataset.action || "").toLowerCase();
+      const tt = tr.dataset.time || "";
+      const tTs = tt ? new Date(tt).getTime() : null;
+
+      const okU = !u || tu.includes(u);
+      const okA = !a || ta.includes(a);
+      let okD = true;
+      if (fromTs && (tTs === null || tTs < fromTs)) okD = false;
+      if (toTs && (tTs === null || tTs > toTs)) okD = false;
+
+      tr.style.display = okU && okA && okD ? "" : "none";
+    });
+  }
+
+  [logFilterUser, logFilterAction, logFilterDateFrom, logFilterDateTo].forEach((el) => {
+    if (el) el.addEventListener("input", applyLogFilters);
+  });
+  if (logsClearBtn) {
+    logsClearBtn.addEventListener("click", () => {
+      logFilterUser.value = "";
+      logFilterAction.value = "";
+      logFilterDateFrom.value = "";
+      logFilterDateTo.value = "";
+      applyLogFilters();
+    });
+  }
+  applyLogFilters();
+
+  // ===============================
+  // 📄 CSV出力（iOS対応）
+  // ===============================
+  function exportToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return alert("対象が見つかりません");
+    const rows = [...table.querySelectorAll("tr")];
+    const csv = rows
+      .map((r) =>
+        [...r.children]
+          .slice(0, -1) // 最後の操作列除外
+          .map((c) =>
+            `"${(c.innerText || "")
+              .replace(/\r?\n/g, " ")
+              .replace(/"/g, '""')}"`
+          )
+          .join(",")
+      )
+      .join("\r\n");
+    const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+    const blob = new Blob([bom, csv], { type: "text/csv;charset=utf-8;" });
+    if (isIOS) {
+      const reader = new FileReader();
+      reader.onload = (e) => window.open(e.target.result, "_blank");
+      reader.readAsDataURL(blob);
+    } else {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename + ".csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
 
-  function filterLogs(){
-    if(!$logTbody) return;
-    const kwUser = ($logUser?.value || "").trim().toLowerCase();
-    const kwAct  = ($logAction?.value || "").trim().toLowerCase();
-    const from   = toDateOnly($logFrom?.value || "");
-    const to     = toDateOnly($logTo?.value || "");
+// ===============================
+// 🖨️ PDF出力（iOS対応: autoTable版===============================
+function exportToPDF(elementId, filename) {
+  const element = document.getElementById(elementId);
+  if (!element) return alert("対象が見つかりません");
 
-    [...$logTbody.querySelectorAll("tr")].forEach(tr=>{
-      const u = (tr.dataset.user || "").toLowerCase();
-      const a = (tr.dataset.action || "").toLowerCase();
-      const tStr = tr.dataset.time || "";
-      const t = toDateOnly(tStr);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-      let ok = true;
-      if (kwUser && !u.includes(kwUser)) ok = false;
-      if (kwAct  && !a.includes(kwAct))  ok = false;
-      if (from && t && (t < from)) ok = false;
-      if (to && t && (t > to)) ok = false;
+  // ===== iOS専用：事前ロードした jsPDF + autoTable 使用 =====
+  if (isIOS && window.jspdf) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-      tr.style.display = ok ? "" : "none";
+    doc.setFontSize(14);
+    doc.text(filename === "users_list" ? "生徒・教師一覧" : "操作ログ一覧", 105, 15, { align: "center" });
+
+    const rows = [...element.querySelectorAll("tr")].map(tr =>
+      [...tr.children].slice(0, -1).map(td => td.innerText.trim())
+    );
+    const head = rows.shift();
+
+    doc.autoTable({
+      head: [head],
+      body: rows,
+      startY: 25,
+      styles: { font: "helvetica", fontSize: 9, cellPadding: 2 },
+      headStyles: { fillColor: [0,120,212], textColor: 255, halign: "center" },
+      bodyStyles: { halign: "center" },
+      alternateRowStyles: { fillColor: [245,245,245] },
+    });
+
+    doc.save(filename + ".pdf");
+    return;
+  }
+
+  // ===== PCなどその他デバイス =====
+  const hide = element.querySelectorAll("th:last-child, td:last-child");
+  hide.forEach(el => (el.style.display = "none"));
+
+  setTimeout(() => {
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: filename + ".pdf",
+      image: { type: "jpeg", quality: 1.0 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#fff" },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+    };
+    html2pdf().set(opt).from(element).save().finally(() => {
+      hide.forEach(el => (el.style.display = ""));
+    });
+  }, 1500);
+}
+
+
+
+  // ===============================
+  // 🧾 ボタンイベント登録
+  // ===============================
+  const usersPdfBtn = document.getElementById("usersPdfBtn");
+  const usersCsvBtn = document.getElementById("usersCsvBtn");
+  const logsPdfBtn = document.getElementById("logsPdfBtn");
+  const logsCsvBtn = document.getElementById("logsCsvBtn");
+
+  if (usersPdfBtn)
+    usersPdfBtn.addEventListener("click", () =>
+      exportToPDF("userTableArea", "users_list")
+    );
+  if (usersCsvBtn)
+    usersCsvBtn.addEventListener("click", () =>
+      exportToCSV("userTable", "users_list")
+    );
+  if (logsPdfBtn)
+    logsPdfBtn.addEventListener("click", () =>
+      exportToPDF("logTableArea", "operation_logs")
+    );
+  if (logsCsvBtn)
+    logsCsvBtn.addEventListener("click", () =>
+      exportToCSV("logTable", "operation_logs")
+    );
+
+  // ===============================
+  // 📊 Chart.js グラフ生成
+  // ===============================
+  const entries = window.__ENTRIES__ || [];
+  const byDate = {};
+
+  function toYMD(d) {
+    const date = new Date(d);
+    if (isNaN(date)) return "";
+    return date.toISOString().split("T")[0];
+  }
+
+  entries.forEach((e) => {
+    const d = toYMD(e.date);
+    if (!d) return;
+    if (!byDate[d]) byDate[d] = { count: 0, sumC: 0, sumM: 0, n: 0 };
+    byDate[d].count++;
+    const c = Number(e.condition);
+    const m = Number(e.mental);
+    if (!isNaN(c) && !isNaN(m)) {
+      byDate[d].sumC += c;
+      byDate[d].sumM += m;
+      byDate[d].n++;
+    }
+  });
+
+  const labels = Object.keys(byDate).sort();
+  const counts = labels.map((d) => byDate[d].count);
+  const avgC = labels.map((d) =>
+    byDate[d].n ? +(byDate[d].sumC / byDate[d].n).toFixed(2) : 0
+  );
+  const avgM = labels.map((d) =>
+    byDate[d].n ? +(byDate[d].sumM / byDate[d].n).toFixed(2) : 0
+  );
+
+  const subChart = document.getElementById("submissionsChart");
+  const avgChart = document.getElementById("avgChart");
+
+  if (subChart) {
+    new Chart(subChart, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{ label: "提出件数", data: counts, backgroundColor: "#0078d4" }],
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true } },
+        plugins: { legend: { display: false } },
+      },
     });
   }
 
-  if ($logUser)   $logUser.addEventListener("input", filterLogs);
-  if ($logAction) $logAction.addEventListener("input", filterLogs);
-  if ($logFrom)   $logFrom.addEventListener("change", filterLogs);
-  if ($logTo)     $logTo.addEventListener("change", filterLogs);
+  if (avgChart) {
+    new Chart(avgChart, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "平均 体調",
+            data: avgC,
+            borderColor: "#0078d4",
+            tension: 0.3,
+          },
+          {
+            label: "平均 メンタル",
+            data: avgM,
+            borderColor: "#ff6b6b",
+            tension: 0.3,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: { y: { min: 0, max: 5 } },
+      },
+    });
+  }
 
-  window.clearLogFilters = function(){
-    if ($logUser)   $logUser.value   = "";
-    if ($logAction) $logAction.value = "";
-    if ($logFrom)   $logFrom.value   = "";
-    if ($logTo)     $logTo.value     = "";
-    filterLogs();
-  };
-
-  // 初期適用
-  filterUsers();
-  filterLogs();
-})();
+  console.log("✅ dashboard_admin ready");
+});

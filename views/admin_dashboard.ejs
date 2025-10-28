@@ -4,7 +4,17 @@
   <meta charset="UTF-8" />
   <title><%= title || "管理者ダッシュボード" %></title>
   <link rel="stylesheet" href="/css/style.css" />
+
+  <!-- Chart.js（統計グラフ） -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- html2pdf.js（PC用PDF出力） -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <!-- ✅ iOS Safari 対策：jsPDF + autoTable 事前読み込み -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js"></script>
+
   <style>
     body{font-family:"Noto Sans JP",sans-serif;background:#f5f7fa;margin:0;}
     header{display:flex;justify-content:space-between;align-items:center;background:#0078d4;color:#fff;padding:15px 20px;font-size:1.2em;}
@@ -38,19 +48,22 @@
     .section{margin-top:32px;}
     .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #ddd;font-size:.8rem;background:#fff;}
     .text-right{text-align:right;}
+    canvas{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:10px;}
     @media (max-width:900px){
       .grid.cols-4{grid-template-columns:repeat(2,1fr);}
+      table{font-size:.9rem;}
+      th,td{padding:6px;}
     }
   </style>
 </head>
 <body>
 <header>
   <h1>👨‍💼 管理者ダッシュボード</h1>
-  <img src="/images/logout.png" alt="logout" onclick="logout()">
+  <img src="/images/logout.png" alt="logout" id="logoutBtn">
 </header>
 
 <main>
-  <!-- 📊 KPI / 統計 -->
+  <!-- 📊 KPI -->
   <section class="section">
     <h2>📊 統計</h2>
     <div class="grid cols-4">
@@ -66,16 +79,31 @@
     </div>
   </section>
 
-  <!-- ➕ ユーザー追加 / 更新 -->
+  <!-- 📈 グラフ -->
+  <section class="section">
+    <h2>📈 グラフ</h2>
+    <div class="grid cols-4" style="grid-template-columns:1fr 1fr;">
+      <div class="card">
+        <h3 style="margin:.2rem 0 .6rem;">日別・提出件数</h3>
+        <canvas id="submissionsChart" height="120"></canvas>
+      </div>
+      <div class="card">
+        <h3 style="margin:.2rem 0 .6rem;">日別・平均 体調／メンタル</h3>
+        <canvas id="avgChart" height="120"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ➕ アカウント追加 -->
   <section class="section">
     <div class="space-between">
       <h2>➕ アカウント追加・更新</h2>
-      <span class="muted">既存IDで送信すると「更新」、未登録IDなら「追加」になります。</span>
+      <span class="muted">既存IDで送信すると更新、未登録IDなら追加になります。</span>
     </div>
-    <form action="/admin/addUser" method="post" class="card">
+    <form action="/admin/addUser" method="post" class="card" id="addUserForm">
       <div class="row">
-        <div><label for="id">ID</label><input id="id" name="id" type="text" placeholder="例: student1A01 / teacher2B" required></div>
-        <div><label for="name">名前</label><input id="name" name="name" type="text" placeholder="例: 山田太郎" required></div>
+        <div><label for="id">ID</label><input id="id" name="id" type="text" required></div>
+        <div><label for="name">名前</label><input id="name" name="name" type="text" required></div>
         <div><label for="role">役割</label>
           <select id="role" name="role" required>
             <option value="student">student（生徒）</option>
@@ -83,7 +111,7 @@
             <option value="admin">admin（管理者）</option>
           </select>
         </div>
-        <div><label for="password">パスワード</label><input id="password" name="password" type="text" placeholder="初期/更新パスワード" required></div>
+        <div><label for="password">パスワード</label><input id="password" name="password" type="text" required></div>
       </div>
       <div class="row">
         <div><label for="grade">学年</label>
@@ -101,13 +129,13 @@
     </form>
   </section>
 
-  <!-- 🔍 フィルター -->
+  <!-- 🔍 ユーザー一覧 -->
   <section class="section">
     <div class="space-between">
       <h2>🔍 ユーザー一覧（フィルター付き）</h2>
       <div class="toolbar">
-        <button class="secondary nowrap" onclick="exportToPDF('userTableArea','users_list')">🖨️ PDF出力</button>
-        <button class="secondary nowrap" onclick="exportToCSV('userTable','users_list')">📄 CSV出力</button>
+        <button class="secondary nowrap" id="usersPdfBtn">🖨️ PDF出力</button>
+        <button class="secondary nowrap" id="usersCsvBtn">📄 CSV出力</button>
       </div>
     </div>
 
@@ -117,15 +145,13 @@
         <div><label for="filterClass">クラス</label><select id="filterClass"><option value="">すべて</option><option value="A">A組</option><option value="B">B組</option><option value="C">C組</option></select></div>
         <div><label for="filterRole">役割</label><select id="filterRole"><option value="">すべて</option><option value="student">student</option><option value="teacher">teacher</option><option value="admin">admin</option></select></div>
         <div><label for="filterKeyword">キーワード（ID/名前）</label><input id="filterKeyword" type="text" placeholder="例: yamada / student1A"></div>
-        <div class="text-right"><label>&nbsp;</label><button class="secondary" onclick="clearUserFilters()">🧼 クリア</button></div>
+        <div class="text-right"><label>&nbsp;</label><button class="secondary" id="usersClearBtn">🧼 クリア</button></div>
       </div>
     </div>
 
     <div id="userTableArea" class="section">
       <table id="userTable">
-        <thead>
-          <tr><th>ID</th><th>名前</th><th>学年</th><th>クラス</th><th>役割</th><th>操作</th></tr>
-        </thead>
+        <thead><tr><th>ID</th><th>名前</th><th>学年</th><th>クラス</th><th>役割</th><th>操作</th></tr></thead>
         <tbody id="userTbody">
           <% users.forEach(u=>{ %>
             <tr data-grade="<%= u.grade %>" data-class="<%= u.class_name %>" data-role="<%= u.role %>" data-id="<%= u.id %>" data-name="<%= u.name %>">
@@ -151,21 +177,11 @@
     <div class="space-between">
       <h2>🧾 操作ログ</h2>
       <div class="toolbar">
-        <button class="secondary nowrap" onclick="exportToPDF('logTableArea','operation_logs')">🖨️ PDF出力</button>
-        <button class="secondary nowrap" onclick="exportToCSV('logTable','operation_logs')">📄 CSV出力</button>
+        <button class="secondary nowrap" id="logsPdfBtn">🖨️ PDF出力</button>
+        <button class="secondary nowrap" id="logsCsvBtn">📄 CSV出力</button>
         <form action="/admin/logs/clear" method="post" onsubmit="return confirm('操作ログを全削除します。よろしいですか？')">
           <button class="danger nowrap">🧹 ログ全削除</button>
         </form>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <div><label for="logFilterUser">ユーザー名</label><input id="logFilterUser" type="text" placeholder="例: 山田 / teacher1A"></div>
-        <div><label for="logFilterAction">操作種別</label><input id="logFilterAction" type="text" placeholder="例: ログイン / ユーザー追加 など"></div>
-        <div><label for="logFilterDateFrom">日付（From）</label><input id="logFilterDateFrom" type="date"></div>
-        <div><label for="logFilterDateTo">日付（To）</label><input id="logFilterDateTo" type="date"></div>
-        <div class="text-right"><label>&nbsp;</label><button class="secondary" onclick="clearLogFilters()">🧼 クリア</button></div>
       </div>
     </div>
 
@@ -184,58 +200,9 @@
   </section>
 </main>
 
-<script src="../js/dashboard_admin.js"></script>
 <script>
-  // ===== CSV出力（Excel互換 / 操作列除外） =====
-  function exportToCSV(tableId, filename) {
-    const table = document.getElementById(tableId);
-    if (!table) return alert("対象が見つかりません");
-    const rows = [...table.querySelectorAll("tr")];
-    const csv = rows.map(r => {
-      const cells = [...r.children].slice(0, -1); // 操作列除外
-      return cells.map(c => {
-        let t = c.innerText || "";
-        t = t.replace(/\r?\n/g, " ").replace(/"/g, '""');
-        return `"${t}"`;
-      }).join(",");
-    }).join("\r\n");
-    const bom = new Uint8Array([0xEF,0xBB,0xBF]);
-    const blob = new Blob([bom, csv], { type:"text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename + ".csv";
-    link.click();
-  }
-
-  // ===== PDF出力（削除ボタン列を非表示） =====
-  // ===== PDF出力（操作列を非表示） =====
-function exportToPDF(elementId, filename) {
-  const element = document.getElementById(elementId);
-  if (!element) return alert("対象が見つかりません");
-
-  // 最後の「操作」列を非表示
-  const actionCols = element.querySelectorAll("th:last-child, td:last-child");
-  actionCols.forEach(el => (el.style.display = "none"));
-
-  const opt = {
-    margin: [10, 10, 10, 10],
-    filename: filename + ".pdf",
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-    pagebreak: { mode: ["avoid-all", "css", "legacy"] }
-  };
-
-  html2pdf().set(opt).from(element).save().then(() => {
-    // 元に戻す
-    actionCols.forEach(el => (el.style.display = ""));
-  }).catch(() => {
-    actionCols.forEach(el => (el.style.display = ""));
-  });
-}
-
-  // ===== ログアウト =====
-  function logout(){ if(confirm("ログアウトしますか？")) location.href="/logout"; }
+  window.__ENTRIES__ = <%- JSON.stringify(entries || []) %>;
 </script>
+<script src="../js/dashboard_admin.js"></script>
 </body>
 </html>

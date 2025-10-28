@@ -36,9 +36,9 @@
   <h1>⚠️ エラーが発生しました</h1>
   <p><%= message || "不明なエラーです。" %></p>
 
-  <% if (error && error.stack) { %>
-    <pre><%= error.stack %></pre>
-  <% } %>
+  <% if (typeof error !== "undefined" && error && error.stack) { %>
+  <pre><%= error.stack %></pre>
+<% } %>
 
   <a href="/">トップに戻る</a>
 </body>
