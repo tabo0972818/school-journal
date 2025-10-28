@@ -1,9 +1,10 @@
 // ============================================================
-// 📘 dashboard_admin.js  完全版（ver.10）
-// - Chart.jsグラフ（提出件数／平均体調・メンタル）
+// 📘 dashboard_admin.js  完全版（ver.10 final）
 // - PDF/CSV出力（iOS Safari対応）
 // - ユーザー絞り込み検索
 // - ログフィルター（日付・種別・名前）
+// - Chart.jsグラフ（提出件数／平均体調・メンタル）
+// - null安全ガード付き（エラー停止防止）
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -33,10 +34,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function applyUserFilters() {
     if (!userTbody) return;
-    const g = filterGrade.value.trim();
-    const c = filterClass.value.trim();
-    const r = filterRole.value.trim();
-    const k = filterKeyword.value.trim().toLowerCase();
+    const g = filterGrade?.value.trim() || "";
+    const c = filterClass?.value.trim() || "";
+    const r = filterRole?.value.trim() || "";
+    const k = filterKeyword?.value.trim().toLowerCase() || "";
 
     [...userTbody.querySelectorAll("tr")].forEach((tr) => {
       const tg = tr.dataset.grade || "";
@@ -59,17 +60,17 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   if (usersClearBtn) {
     usersClearBtn.addEventListener("click", () => {
-      filterGrade.value = "";
-      filterClass.value = "";
-      filterRole.value = "";
-      filterKeyword.value = "";
+      if (filterGrade) filterGrade.value = "";
+      if (filterClass) filterClass.value = "";
+      if (filterRole) filterRole.value = "";
+      if (filterKeyword) filterKeyword.value = "";
       applyUserFilters();
     });
   }
   applyUserFilters();
 
   // ===============================
-  // 🧾 ログ絞り込み
+  // 🧾 ログ絞り込み（null安全対応）
   // ===============================
   const logFilterUser = document.getElementById("logFilterUser");
   const logFilterAction = document.getElementById("logFilterAction");
@@ -79,7 +80,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const logTbody = document.getElementById("logTbody");
 
   function applyLogFilters() {
-    if (!logTbody) return;
+    if (!logTbody || !logFilterUser || !logFilterAction || !logFilterDateFrom || !logFilterDateTo) return;
+
     const u = logFilterUser.value.trim().toLowerCase();
     const a = logFilterAction.value.trim().toLowerCase();
     const dFrom = logFilterDateFrom.value;
@@ -103,21 +105,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  [logFilterUser, logFilterAction, logFilterDateFrom, logFilterDateTo].forEach(
-    (el) => {
-      if (el) el.addEventListener("input", applyLogFilters);
-    }
-  );
-  if (logsClearBtn) {
-    logsClearBtn.addEventListener("click", () => {
-      logFilterUser.value = "";
-      logFilterAction.value = "";
-      logFilterDateFrom.value = "";
-      logFilterDateTo.value = "";
-      applyLogFilters();
+  if (logFilterUser && logFilterAction && logFilterDateFrom && logFilterDateTo) {
+    [logFilterUser, logFilterAction, logFilterDateFrom, logFilterDateTo].forEach((el) => {
+      el.addEventListener("input", applyLogFilters);
     });
+
+    if (logsClearBtn) {
+      logsClearBtn.addEventListener("click", () => {
+        logFilterUser.value = "";
+        logFilterAction.value = "";
+        logFilterDateFrom.value = "";
+        logFilterDateTo.value = "";
+        applyLogFilters();
+      });
+    }
+
+    applyLogFilters();
   }
-  applyLogFilters();
 
   // ===============================
   // 📄 CSV出力（iOS対応）
@@ -129,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const csv = rows
       .map((r) =>
         [...r.children]
-          .slice(0, -1)
+          .slice(0, -1) // 最後の「操作」列除外
           .map((c) =>
             `"${(c.innerText || "")
               .replace(/\r?\n/g, " ")
@@ -157,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===============================
-  // 🖨️ PDF出力（iOS対応版）
+  // 📄 PDF出力（iOS対応版）
   // ===============================
   function exportToPDF(elementId, filename) {
     const element = document.getElementById(elementId);
@@ -166,6 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(userAgent);
 
+    // 「操作」列を一時的に非表示
     const actionCols = element.querySelectorAll("th:last-child, td:last-child");
     actionCols.forEach((el) => (el.style.display = "none"));
 
@@ -197,8 +202,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if (isIOS) {
-      console.log("📱 iOS Safari検出: PDF生成を0.8秒遅延します…");
-      setTimeout(generate, 800);
+      console.log("📱 iOS Safari検出: PDF生成を遅延します…");
+      setTimeout(generate, 1200);
     } else {
       generate();
     }
