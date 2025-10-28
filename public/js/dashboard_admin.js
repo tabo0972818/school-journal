@@ -1,9 +1,9 @@
 // ============================================================
-// 📘 dashboard_admin.js  完全版
+// 📘 dashboard_admin.js  完全版（ver.10）
+// - Chart.jsグラフ（提出件数／平均体調・メンタル）
 // - PDF/CSV出力（iOS Safari対応）
 // - ユーザー絞り込み検索
 // - ログフィルター（日付・種別・名前）
-// - Chart.jsグラフ（提出件数／平均体調・メンタル）
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -103,9 +103,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  [logFilterUser, logFilterAction, logFilterDateFrom, logFilterDateTo].forEach((el) => {
-    if (el) el.addEventListener("input", applyLogFilters);
-  });
+  [logFilterUser, logFilterAction, logFilterDateFrom, logFilterDateTo].forEach(
+    (el) => {
+      if (el) el.addEventListener("input", applyLogFilters);
+    }
+  );
   if (logsClearBtn) {
     logsClearBtn.addEventListener("click", () => {
       logFilterUser.value = "";
@@ -127,7 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const csv = rows
       .map((r) =>
         [...r.children]
-          .slice(0, -1) // 最後の操作列除外
+          .slice(0, -1)
           .map((c) =>
             `"${(c.innerText || "")
               .replace(/\r?\n/g, " ")
@@ -154,54 +156,53 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-// ===== PDF出力（iOS対応版） =====
-function exportToPDF(elementId, filename) {
-  const element = document.getElementById(elementId);
-  if (!element) return alert("対象が見つかりません");
+  // ===============================
+  // 🖨️ PDF出力（iOS対応版）
+  // ===============================
+  function exportToPDF(elementId, filename) {
+    const element = document.getElementById(elementId);
+    if (!element) return alert("対象が見つかりません");
 
-  // Safari(iOS)対策：レンダリングが完了するまで少し待機
-  const userAgent = window.navigator.userAgent.toLowerCase();
-  const isIOS = /iphone|ipad|ipod/.test(userAgent);
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(userAgent);
 
-  // 最後の「操作」列を一時的に非表示
-  const actionCols = element.querySelectorAll("th:last-child, td:last-child");
-  actionCols.forEach(el => (el.style.display = "none"));
+    const actionCols = element.querySelectorAll("th:last-child, td:last-child");
+    actionCols.forEach((el) => (el.style.display = "none"));
 
-  const generate = () => {
-    const opt = {
-      margin: [10, 10, 10, 10],
-      filename: filename + ".pdf",
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        scrollY: 0, // iOSでのずれ防止
-      },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+    const generate = () => {
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: filename + ".pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          scrollY: 0,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+
+      html2pdf()
+        .set(opt)
+        .from(element)
+        .save()
+        .then(() => {
+          actionCols.forEach((el) => (el.style.display = ""));
+        })
+        .catch(() => {
+          actionCols.forEach((el) => (el.style.display = ""));
+        });
     };
 
-    html2pdf()
-      .set(opt)
-      .from(element)
-      .save()
-      .then(() => {
-        actionCols.forEach(el => (el.style.display = ""));
-      })
-      .catch(() => {
-        actionCols.forEach(el => (el.style.display = ""));
-      });
-  };
-
-  // iOSは描画が遅いので0.8秒遅らせてから実行
-  if (isIOS) {
-    console.log("📱 iOS Safari検出: PDF生成を遅延します…");
-    setTimeout(generate, 800);
-  } else {
-    generate();
+    if (isIOS) {
+      console.log("📱 iOS Safari検出: PDF生成を0.8秒遅延します…");
+      setTimeout(generate, 800);
+    } else {
+      generate();
+    }
   }
-}
 
   // ===============================
   // 🧾 ボタンイベント登録
@@ -271,7 +272,9 @@ function exportToPDF(elementId, filename) {
       type: "bar",
       data: {
         labels,
-        datasets: [{ label: "提出件数", data: counts, backgroundColor: "#0078d4" }],
+        datasets: [
+          { label: "提出件数", data: counts, backgroundColor: "#0078d4" },
+        ],
       },
       options: {
         responsive: true,
