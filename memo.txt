@@ -11,7 +11,7 @@ start http://localhost:10000/teacher
 start http://localhost:10000/login
 
 git add .
-git commit -m "fix: iOS Safari PDF出力対応"
+git commit -m "終盤"
 git push origin main
 
 
