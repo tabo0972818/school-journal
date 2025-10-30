@@ -11,6 +11,7 @@ start http://localhost:10000/teacher
 start http://localhost:10000/login
 
 git add .
-git commit -m "グラフ修正"
+git commit -m "修正"
 git push origin main
 
+https://github.com/tabo0972818/school-journal
