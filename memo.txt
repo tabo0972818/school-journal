@@ -11,6 +11,6 @@ start http://localhost:10000/teacher
 start http://localhost:10000/login
 
 git add .
-git commit -m "終盤"
+git commit -m "グラフ修正"
 git push origin main
 

@@ -106,6 +106,12 @@
       z-index: 1000;
     }
     .toast.show { opacity: 1; transform: translateY(0); }
+
+    .chart-container canvas {
+      width: 100%;
+      max-height: 350px;
+      margin-top: 30px;
+    }
   </style>
 </head>
 
@@ -192,7 +198,7 @@
   </section>
 
   <!-- 📊 グラフ群 -->
-  <section>
+  <section class="chart-container">
     <h2>📈 提出率・平均・推移</h2>
     <canvas id="submissionChart"></canvas>
   </section>
@@ -204,79 +210,67 @@
 (function(){
   const jstToday = ()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
 
-  /* ================= 📄 PDF出力（左右中央完全調整版） ================= */
-window.exportToPDF = async function(elementId, filename, titleText){
-  try{
-    const table = document.getElementById(elementId);
-    if(!table) return alert("出力対象が見つかりません");
+  /* ================= 📄 PDF出力 ================= */
+  window.exportToPDF = async function(elementId, filename, titleText){
+    try{
+      const table=document.getElementById(elementId);
+      if(!table)return alert("出力対象が見つかりません");
 
-    // 「操作」列はPDFに不要
-    const headers = table.querySelectorAll("thead th");
-    const isUserTable = headers.length > 2;
-    let hiddenCells = [];
-    if(isUserTable){
-      hiddenCells = [...table.querySelectorAll("th:last-child, td:last-child")];
-      hiddenCells.forEach(td => td.style.display = "none");
-    }
+      const today=jstToday();
+      const rows=table.querySelectorAll("tbody tr");
+      const hasData=rows.length>0 && !rows[0].innerText.includes("まだ提出がありません");
 
-    const today = new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10);
+      const wrap=document.createElement("div");
+      Object.assign(wrap.style,{
+        width:"190mm",marginLeft:"auto",marginRight:"auto",background:"#fff",
+        textAlign:"center",padding:"8mm 0",fontFamily:"'Noto Sans JP',sans-serif"
+      });
 
-    // 📦 PDF用ラッパー（左右中央バランス補正）
-    const wrap = document.createElement("div");
-    Object.assign(wrap.style, {
-      width: "190mm",                // ← 少し狭め（はみ出し防止）
-      marginLeft: "auto",
-      marginRight: "auto",
-      background: "#fff",
-      textAlign: "center",
-      padding: "8mm 0",
-      fontFamily: "'Noto Sans JP', sans-serif",
-      transform: "translateX(-2mm)"  // ← ⚙️ ここで右寄り補正（左に2mmずらす）
-    });
+      const title=document.createElement("h3");
+      title.textContent=`${titleText.replace(/\（.*?\）/,"")}（${today}）`;
+      title.style.color="#0078d4";
+      title.style.marginBottom="5mm";
+      wrap.appendChild(title);
 
-    const title = document.createElement("h3");
-    title.textContent = `${titleText.replace(/\（.*?\）/, "")}（${today}）`;
-    title.style.color = "#0078d4";
-    title.style.marginBottom = "5mm";
-    wrap.appendChild(title);
+      const clone=table.cloneNode(true);
+      Object.assign(clone.style,{width:"95%",margin:"auto",borderCollapse:"collapse",tableLayout:"auto"});
+      clone.querySelectorAll("th,td").forEach(td=>{
+        td.style.border="1px solid #999";
+        td.style.fontSize="11px";
+        td.style.padding="5px 6px";
+        td.style.textAlign="center";
+        td.style.whiteSpace="normal";
+        td.style.wordBreak="break-word";
+      });
+      clone.querySelectorAll("th").forEach(th=>{th.style.background="#0078d4";th.style.color="#fff";});
 
-    const clone = table.cloneNode(true);
-    Object.assign(clone.style, {
-      width: "95%",
-      margin: "auto",
-      borderCollapse: "collapse",
-      tableLayout: "auto"
-    });
+      if(hasData){
+        clone.querySelectorAll("tr").forEach(row=>{
+          for(let i=0;i<3;i++)row.deleteCell(-1);
+        });
+      }
+      wrap.appendChild(clone);
 
-    clone.querySelectorAll("th,td").forEach(td => {
-      td.style.border = "1px solid #999";
-      td.style.fontSize = "11px";
-      td.style.padding = "5px 6px";
-      td.style.textAlign = "center";
-      td.style.whiteSpace = "normal";
-      td.style.wordBreak = "break-word";
-    });
+      if(!hasData){
+        const msg=document.createElement("div");
+        msg.textContent="まだ提出がありません。";
+        msg.style.textAlign="center";
+        msg.style.fontSize="16px";
+        msg.style.marginTop="25px";
+        wrap.appendChild(msg);
+      }
 
-    wrap.appendChild(clone);
-    document.body.appendChild(wrap);
-
-    // ✅ PDF生成（中央寄せ維持）
-    await html2pdf().set({
-      margin: [10, 10, 10, 10],
-      filename: `${filename}_${today}.pdf`,
-      image: { type: "jpeg", quality: 1 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#fff", scrollY: 0 },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-    }).from(wrap).save();
-
-    wrap.remove();
-    hiddenCells.forEach(td => td.style.display = "");
-  } catch(e){
-    console.error(e);
-    alert("PDF出力中にエラーが発生しました");
-  }
-};
-
+      document.body.appendChild(wrap);
+      await html2pdf().set({
+        margin:[10,10,10,10],
+        filename:`${filename}_${today}.pdf`,
+        image:{type:"jpeg",quality:1},
+        html2canvas:{scale:2,useCORS:true,backgroundColor:"#fff"},
+        jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}
+      }).from(wrap).save();
+      wrap.remove();
+    }catch(e){console.error(e);alert("PDF出力中にエラーが発生しました");}
+  };
 
   /* ================= CSV出力 ================= */
   window.exportToCSV=function(tableId,filename){
@@ -314,10 +308,7 @@ window.exportToPDF = async function(elementId, filename, titleText){
         document.querySelector(".cell-action-"+id).innerHTML="<span>🔥 済</span>";
         showToast("既読＋🔥を記録しました");
       }else showToast("保存に失敗しました");
-    }catch(err){
-      console.error(err);
-      showToast("通信エラーが発生しました");
-    }
+    }catch(err){console.error(err);showToast("通信エラーが発生しました");}
   });
 
   function showToast(msg){
@@ -329,8 +320,8 @@ window.exportToPDF = async function(elementId, filename, titleText){
 
   /* ================= グラフ描画 ================= */
   document.addEventListener("DOMContentLoaded",()=>{
-    const submissionCanvas=document.getElementById("submissionChart");
-    if(!submissionCanvas)return;
+    const c=document.getElementById("submissionChart");
+    if(!c)return;
 
     const trendLabels=<%- JSON.stringify(trendLabels||[]) %>;
     const trendCondition=<%- JSON.stringify(trendCondition||[]) %>;
@@ -341,63 +332,49 @@ window.exportToPDF = async function(elementId, filename, titleText){
     const avgCondition=<%- Number(avgCondition||0) %>;
     const avgMental=<%- Number(avgMental||0) %>;
 
-    // 提出率円グラフ
-    const ctx1=submissionCanvas.getContext("2d");
-    new Chart(ctx1,{
-      type:"doughnut",
-      data:{
-        labels:["提出済","未提出"],
-        datasets:[{data:[submissionRate,100-submissionRate],backgroundColor:["#0078d4","#ccc"]}]
-      },
-      options:{plugins:{title:{display:true,text:"提出率（全体）",font:{size:16}},legend:{position:"bottom"}}}
+    // ① 円グラフ
+    new Chart(c,{type:"doughnut",data:{labels:["提出済","未提出"],datasets:[{data:[submissionRate,100-submissionRate],backgroundColor:["#0078d4","#ccc"]}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:"提出率（全体）",font:{size:16}},legend:{position:"bottom"}}}
     });
 
-    // 平均棒グラフ
+    // ② 平均棒グラフ
     const avgCanvas=document.createElement("canvas");
-    submissionCanvas.parentElement.appendChild(avgCanvas);
-    new Chart(avgCanvas.getContext("2d"),{
-      type:"bar",
+    c.parentElement.appendChild(avgCanvas);
+    new Chart(avgCanvas.getContext("2d"),{type:"bar",
       data:{labels:["体調","メンタル"],datasets:[{data:[avgCondition,avgMental],backgroundColor:["#4caf50","#ff9800"]}]},
-      options:{plugins:{title:{display:true,text:"平均値（体調・メンタル）",font:{size:16}}},scales:{y:{min:0,max:5,ticks:{stepSize:1}}}}
+      options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:"平均値（体調・メンタル）",font:{size:16}}},scales:{y:{min:0,max:5,ticks:{stepSize:1}}}}
     });
 
-    // 推移折れ線
+    // ③ 体調・メンタル推移
     const trendCanvas=document.createElement("canvas");
-    submissionCanvas.parentElement.appendChild(trendCanvas);
+    c.parentElement.appendChild(trendCanvas);
     new Chart(trendCanvas.getContext("2d"),{
       type:"line",
       data:{labels:trendLabels,datasets:[
-        {label:"体調平均",data:trendCondition,borderColor:"#0078d4",fill:false},
-        {label:"メンタル平均",data:trendMental,borderColor:"#ff9800",fill:false}
+        {label:"体調平均",data:trendCondition,borderColor:"#0078d4",fill:false,tension:0.3,pointRadius:6,spanGaps:true},
+        {label:"メンタル平均",data:trendMental,borderColor:"#ff9800",fill:false,tension:0.3,pointRadius:6,spanGaps:true}
       ]},
-      options:{plugins:{title:{display:true,text:"日別平均推移",font:{size:16}}},scales:{y:{min:0,max:5,ticks:{stepSize:1}}}}
+      options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:"日別平均推移",font:{size:16}},legend:{position:"bottom"}},scales:{y:{min:0,max:5,ticks:{stepSize:1}}}}
     });
 
-    // 提出率推移
+    // ④ 提出率推移
     const rateCanvas=document.createElement("canvas");
-    submissionCanvas.parentElement.appendChild(rateCanvas);
+    c.parentElement.appendChild(rateCanvas);
     new Chart(rateCanvas.getContext("2d"),{
       type:"line",
-      data:{labels:rateLabels,datasets:[{label:"提出率(%)",data:rateValues,borderColor:"#4caf50",fill:false}]},
-      options:{plugins:{title:{display:true,text:"日別提出率の推移",font:{size:16}}},scales:{y:{min:0,max:100,ticks:{stepSize:10}}}}
+      data:{labels:rateLabels,datasets:[
+        {label:"提出率(%)",data:rateValues,borderColor:"#4caf50",fill:false,tension:0.3,pointRadius:6,spanGaps:true}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:"日別提出率の推移",font:{size:16}},legend:{position:"bottom"}},scales:{y:{min:0,max:100,ticks:{stepSize:10}}}}
     });
   });
 
   /* ================= その他 ================= */
   window.logout=()=>{if(confirm("ログアウトしますか？"))location.href="/logout";};
-  window.filterByRange=()=>{
-    const f=document.querySelector("#filterFrom").value;
-    const t=document.querySelector("#filterTo").value;
-    document.querySelectorAll("#entryTable tbody tr").forEach(r=>{
-      const d=r.dataset.date;
-      r.style.display=(!f||d>=f)&&(!t||d<=t)?"":"none";
-    });
+  window.filterByRange=()=>{const f=document.querySelector("#filterFrom").value;const t=document.querySelector("#filterTo").value;
+    document.querySelectorAll("#entryTable tbody tr").forEach(r=>{const d=r.dataset.date;r.style.display=(!f||d>=f)&&(!t||d<=t)?"":"none";});
   };
-  window.resetRange=()=>{
-    document.querySelector("#filterFrom").value="";
-    document.querySelector("#filterTo").value="";
-    document.querySelectorAll("#entryTable tbody tr").forEach(r=>r.style.display="");
-  };
+  window.resetRange=()=>{document.querySelector("#filterFrom").value="";document.querySelector("#filterTo").value="";document.querySelectorAll("#entryTable tbody tr").forEach(r=>r.style.display="");};
 })();
 </script>
 </body>
